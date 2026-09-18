@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+*.session
+*.session-journal
+
+# Local dashboard build carries posters' phone numbers — the published copy
+# under docs/ is rebuilt with --strip-contacts.
+dashboard/data.js

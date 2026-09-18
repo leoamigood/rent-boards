@@ -1,0 +1,523 @@
+<title>Batumi Rent Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#EFF2F1; --surface:#FAFCFB; --surface-2:#F4F7F6;
+  --ink:#101A19; --ink-2:#4A5C5A; --ink-3:#73827F;
+  --line:#D9E1DF; --line-strong:#C2CECB; --chip:#E7EDEB;
+  --accent:#008F84; --accent-ink:#00655E; --signal:#BD7415; --signal-ink:#8A5409;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --display:"Fraunces",Georgia,serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme: dark;
+  --ground:#0D1513; --surface:#15201E; --surface-2:#1B2725;
+  --ink:#E9F0EE; --ink-2:#A8BAB7; --ink-3:#7F918E;
+  --line:#26332F; --line-strong:#35443F; --chip:#1F2C2A;
+  --accent:#12A89A; --accent-ink:#3FC4B6; --signal:#C08618; --signal-ink:#D9A33F;
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0D1513; --surface:#15201E; --surface-2:#1B2725;
+  --ink:#E9F0EE; --ink-2:#A8BAB7; --ink-3:#7F918E;
+  --line:#26332F; --line-strong:#35443F; --chip:#1F2C2A;
+  --accent:#12A89A; --accent-ink:#3FC4B6; --signal:#C08618; --signal-ink:#D9A33F;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+     font-size:14px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:28px 56px}
+h1,h2,h3{text-wrap:balance;margin:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+a{color:var(--accent-ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+/* ---- masthead ---- */
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.09em;
+         text-transform:uppercase;color:var(--ink-3);margin:0 0 10px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,44px);
+   line-height:1.05;letter-spacing:-.015em}
+.standfirst{color:var(--ink-2);margin:10px 0 0;max-width:62ch}
+.masthead{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:22px}
+
+/* ---- filters ---- */
+.filters{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+         padding:16px 18px;display:grid;gap:16px;margin-bottom:20px}
+.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+label,.legend{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+              text-transform:uppercase;color:var(--ink-3)}
+input[type=search],select{font:inherit;color:var(--ink);background:var(--surface-2);
+  border:1px solid var(--line-strong);border-radius:4px;padding:7px 9px;width:100%}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.rangeval{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;background:var(--chip);color:var(--ink-2);
+  border:1px solid transparent;border-radius:999px;padding:4px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+:root[data-theme="dark"] .chip[aria-pressed="true"],
+:root:not([data-theme="light"]) .chip[aria-pressed="true"]{color:#08201E}
+.chip:hover{border-color:var(--accent)}
+.reset{background:none;border:1px solid var(--line-strong);border-radius:4px;
+  padding:7px 12px;font:inherit;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.reset:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+/* ---- stat tiles ---- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+       gap:1px;background:var(--line);border:1px solid var(--line);
+       border-radius:6px;overflow:hidden;margin-bottom:20px}
+.tile{background:var(--surface);padding:14px 16px}
+.tile .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--ink-3)}
+.tile .v{font-family:var(--mono);font-variant-numeric:tabular-nums;
+         font-size:26px;font-weight:500;line-height:1.15;margin-top:3px}
+.tile .sub{font-size:12px;color:var(--ink-3);margin-top:1px}
+
+/* ---- charts ---- */
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+        gap:14px;margin-bottom:26px}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);
+       border-radius:6px;padding:14px 16px 10px}
+figcaption{font-size:13px;font-weight:600;margin-bottom:2px}
+.cap{font-size:12px;color:var(--ink-3);margin-bottom:8px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.legend-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.legend{display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;
+        font-family:var(--sans);font-size:11.5px;color:var(--ink-2)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+
+/* ---- results ---- */
+.resulthead{display:flex;justify-content:space-between;align-items:baseline;
+            gap:12px;flex-wrap:wrap;margin-bottom:10px}
+h2{font-family:var(--display);font-weight:600;font-size:20px}
+.rows{display:flex;flex-direction:column;gap:1px;background:var(--line);
+      border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.row{background:var(--surface);display:grid;gap:4px 14px;padding:11px 16px;
+     grid-template-columns:96px 132px 1fr auto auto;align-items:baseline;
+     cursor:pointer;border:none;text-align:left;font:inherit;color:inherit;width:100%}
+.row:hover{background:var(--surface-2)}
+.row .price{font-family:var(--mono);font-variant-numeric:tabular-nums;
+            font-size:16px;font-weight:600}
+.row .ppm{font-family:var(--mono);font-size:11px;color:var(--ink-3);display:block;
+          font-weight:400}
+.row .spec{font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.row .loc{font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.row .flags{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.row .date{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.good .price{color:var(--signal-ink)}
+.detail{background:var(--surface-2);padding:14px 16px;border-top:1px dashed var(--line-strong)}
+.detail p{margin:0 0 10px;white-space:pre-wrap;font-size:13px;color:var(--ink-2);
+          max-width:70ch;overflow-wrap:anywhere}
+.detail .meta{font-family:var(--mono);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+       padding:34px;text-align:center;color:var(--ink-2)}
+footer{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);
+       font-size:12px;color:var(--ink-3);display:flex;gap:18px;flex-wrap:wrap}
+@media (max-width:640px){
+  .row{grid-template-columns:90px 1fr;grid-template-areas:"price spec" "price loc" "price flags"}
+  .row .price{grid-area:price}.row .spec{grid-area:spec}
+  .row .loc{grid-area:loc}.row .flags{grid-area:flags}.row .date{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow" id="provenance">loading…</p>
+    <h1>Batumi Rent Board</h1>
+    <p class="standfirst">Every flat offered for rent in <span class="num" id="chatname">the chat</span>,
+      with repeat postings collapsed — one flat is typically advertised 5–6 times by
+      different accounts. Sorted by value per square metre by default.</p>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <div class="frow">
+      <div class="field">
+        <label for="q">Search street, building, text</label>
+        <input type="search" id="q" placeholder="Шартава, Orbi, посудомойка…">
+      </div>
+      <div class="field">
+        <label for="loc">Area or street</label>
+        <select id="loc"><option value="">Anywhere</option></select>
+      </div>
+      <div class="field">
+        <label for="sort">Sort by</label>
+        <select id="sort">
+          <option value="ppm">Best value ($/m²)</option>
+          <option value="price">Cheapest first</option>
+          <option value="pricedesc">Most expensive first</option>
+          <option value="area">Largest first</option>
+          <option value="date">Most recently posted</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="reset">&nbsp;</label>
+        <button class="reset" id="reset" type="button">Clear all filters</button>
+      </div>
+    </div>
+
+    <div class="frow">
+      <div class="field">
+        <label for="maxp">Budget ceiling — <span class="rangeval" id="maxpv"></span></label>
+        <input type="range" id="maxp" min="200" max="2500" step="50" value="2500">
+      </div>
+      <div class="field">
+        <label for="mina">Minimum size — <span class="rangeval" id="minav"></span></label>
+        <input type="range" id="mina" min="0" max="150" step="5" value="0">
+      </div>
+      <div class="field">
+        <label for="maxppm">Max $/m² — <span class="rangeval" id="maxppmv"></span></label>
+        <input type="range" id="maxppm" min="4" max="30" step="0.5" value="30">
+      </div>
+    </div>
+
+    <div class="frow" style="grid-template-columns:1fr">
+      <div class="field">
+        <span class="legend" style="font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase">Layout</span>
+        <div class="chips" id="layouts"></div>
+      </div>
+      <div class="field">
+        <span class="legend" style="font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase">Must have</span>
+        <div class="chips" id="feats">
+          <button class="chip" type="button" data-f="sv" aria-pressed="false">Sea view</button>
+          <button class="chip" type="button" data-f="fu" aria-pressed="false">Furnished</button>
+          <button class="chip" type="button" data-f="pk" aria-pressed="false">Parking</button>
+          <button class="chip" type="button" data-f="pet" aria-pressed="false">Pets allowed</button>
+          <button class="chip" type="button" data-f="noag" aria-pressed="false">No commission</button>
+          <button class="chip" type="button" data-f="np" aria-pressed="false">Has photos</button>
+          <button class="chip" type="button" data-f="long" aria-pressed="false">Long term</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tiles" id="tiles" aria-label="Summary of the current selection"></section>
+
+  <section class="charts">
+    <figure>
+      <figcaption>What rent costs</figcaption>
+      <p class="cap">Flats per $100 band of monthly rent</p>
+      <svg id="c1" viewBox="0 0 340 180" role="img" aria-label="Histogram of monthly rent"></svg>
+    </figure>
+    <figure>
+      <figcaption>Median rent by layout</figcaption>
+      <p class="cap">Bedrooms + living room, as ads write it</p>
+      <svg id="c2" viewBox="0 0 340 180" role="img" aria-label="Median rent for each layout"></svg>
+    </figure>
+    <figure>
+      <figcaption>Size against price</figcaption>
+      <p class="cap">Below the line is cheaper per m² than the median</p>
+      <svg id="c3" viewBox="0 0 340 180" role="img" aria-label="Scatter of floor area against monthly rent"></svg>
+      <div class="legend-row">
+        <span class="legend"><span class="dot" style="background:var(--signal)"></span>better value than median</span>
+        <span class="legend"><span class="dot" style="background:var(--accent)"></span>at or above median</span>
+      </div>
+    </figure>
+  </section>
+
+  <div class="resulthead">
+    <h2 id="count">Listings</h2>
+    <p class="rangeval" id="hint">Select a row to read the original post</p>
+  </div>
+  <div class="rows" id="rows"></div>
+
+  <footer>
+    <span id="built"></span>
+    <span>Prices normalised to USD. Figures come from the ads themselves and are not verified.</span>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  "use strict";
+  var ALL = (window.LISTINGS||[]), META = (window.META||{});
+  var $ = function(id){ return document.getElementById(id); };
+  var fmtUSD = function(v){ return v==null ? "—" : "$" + Math.round(v).toLocaleString("en-US"); };
+  var median = function(a){ if(!a.length) return null; var s=a.slice().sort(function(x,y){return x-y;});
+    var m=Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+
+  // ---- provenance -------------------------------------------------------
+  $("provenance").textContent = "t.me/" + (META.chat||"") + " · " +
+    (META.messages||0).toLocaleString("en-US") + " messages read · " +
+    (META.from||"") + " to " + (META.to||"");
+  $("chatname").textContent = "@" + (META.chat||"");
+  $("built").textContent = "Built " + (META.built||"") + " from " +
+    (META.posts||0).toLocaleString("en-US") + " listing posts.";
+
+  // ---- filter state -----------------------------------------------------
+  var LAYOUTS = ["studio","1+1","2+1","3+1"];
+  var state = { q:"", loc:"", sort:"ppm", maxp:2500, mina:0, maxppm:30,
+                layouts:{}, feats:{} };
+
+  var layoutBox = $("layouts");
+  LAYOUTS.forEach(function(l){
+    var n = ALL.filter(function(r){ return r.lay===l; }).length;
+    var b = document.createElement("button");
+    b.type="button"; b.className="chip"; b.setAttribute("aria-pressed","false");
+    b.dataset.lay = l; b.textContent = l + " (" + n + ")";
+    layoutBox.appendChild(b);
+  });
+
+  var locCounts = {};
+  ALL.forEach(function(r){ if(r.loc){ var k=r.loc.split(" ")[0];
+    locCounts[k]=(locCounts[k]||0)+1; } });
+  Object.keys(locCounts).filter(function(k){ return locCounts[k]>=6; })
+    .sort(function(a,b){ return locCounts[b]-locCounts[a]; })
+    .forEach(function(k){ var o=document.createElement("option");
+      o.value=k; o.textContent=k+" ("+locCounts[k]+")"; $("loc").appendChild(o); });
+
+  function passes(r){
+    if(state.maxp<2500 && !(r.p!=null && r.p<=state.maxp)) return false;
+    if(state.mina>0 && !(r.a!=null && r.a>=state.mina)) return false;
+    if(state.maxppm<30 && !(r.ppm!=null && r.ppm<=state.maxppm)) return false;
+    if(state.loc && (!r.loc || r.loc.split(" ")[0]!==state.loc)) return false;
+    var picked = Object.keys(state.layouts).filter(function(k){return state.layouts[k];});
+    if(picked.length && picked.indexOf(r.lay)<0) return false;
+    if(state.feats.sv && !r.sv) return false;
+    if(state.feats.fu && r.fu!==1) return false;
+    if(state.feats.pk && !r.pk) return false;
+    if(state.feats.pet && r.pet!==1) return false;
+    if(state.feats.noag && r.ag===1) return false;
+    if(state.feats.np && !r.np) return false;
+    if(state.feats.long && r.t!=="long") return false;
+    if(state.q){
+      var hay = ((r.txt||"")+" "+(r.loc||"")+" "+(r.cx||"")).toLowerCase();
+      if(hay.indexOf(state.q.toLowerCase())<0) return false;
+    }
+    return true;
+  }
+
+  var SORTS = {
+    ppm:      function(a,b){ return (a.ppm==null)-(b.ppm==null) || a.ppm-b.ppm; },
+    price:    function(a,b){ return (a.p==null)-(b.p==null) || a.p-b.p; },
+    pricedesc:function(a,b){ return (a.p==null)-(b.p==null) || b.p-a.p; },
+    area:     function(a,b){ return (a.a==null)-(b.a==null) || b.a-a.a; },
+    date:     function(a,b){ return a.d<b.d?1:a.d>b.d?-1:0; }
+  };
+
+  // ---- svg helpers ------------------------------------------------------
+  var NS="http://www.w3.org/2000/svg";
+  function el(tag,attrs){ var n=document.createElementNS(NS,tag);
+    for(var k in attrs){ n.setAttribute(k,attrs[k]); } return n; }
+  function txt(x,y,s,o){ o=o||{}; var t=el("text",{x:x,y:y,
+      "font-family":"IBM Plex Mono, monospace","font-size":o.size||8,
+      fill:o.fill||"var(--ink-3)","text-anchor":o.anchor||"start",
+      "font-variant-numeric":"tabular-nums"});
+    t.textContent=s; return t; }
+  function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+  // ---- charts -----------------------------------------------------------
+  function histogram(rows){
+    var svg=$("c1"); clear(svg);
+    var W=340,H=180,L=30,R=6,T=10,B=26;
+    var prices=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
+    if(!prices.length){ svg.appendChild(txt(W/2,H/2,"No priced listings",{anchor:"middle",size:9})); return; }
+    var STEP=100, MAX=2000, bins=new Array(MAX/STEP+1).fill(0);
+    prices.forEach(function(p){ bins[Math.min(Math.floor(p/STEP),MAX/STEP)]++; });
+    var peak=Math.max.apply(null,bins);
+    var bw=(W-L-R)/bins.length;
+    // y grid
+    [0,0.5,1].forEach(function(f){
+      var y=T+(H-T-B)*(1-f);
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));
+      svg.appendChild(txt(L-5,y+3,Math.round(peak*f),{anchor:"end",size:7.5}));
+    });
+    bins.forEach(function(n,i){
+      if(!n) return;
+      var h=(H-T-B)*(n/peak), x=L+i*bw+1, y=H-B-h;
+      svg.appendChild(el("rect",{x:x,y:y,width:Math.max(bw-2,1),height:h,
+        rx:2,fill:"var(--accent)"}));
+      var g=el("rect",{x:x-1,y:T,width:bw,height:H-T-B,fill:"transparent"});
+      g.appendChild(el("title",{})).textContent =
+        "$"+(i*STEP)+(i===bins.length-1?"+":"–$"+((i+1)*STEP-1))+" · "+n+" flats";
+      svg.appendChild(g);
+    });
+    [0,500,1000,1500,2000].forEach(function(v){
+      var lab = v>=1000 ? "$"+(v/1000)+"k" : "$"+v;
+      if(v===MAX) lab += "+";
+      svg.appendChild(txt(L+(v/STEP)*bw,H-B+13,lab,
+        {anchor:v===0?"start":(v===MAX?"end":"middle"),size:7.5}));
+    });
+  }
+
+  function byLayout(rows){
+    var svg=$("c2"); clear(svg);
+    var W=340,H=180,L=44,R=46,T=12,B=22;
+    var groups=LAYOUTS.map(function(l){
+      var ps=rows.filter(function(r){return r.lay===l&&r.p!=null;})
+                 .map(function(r){return r.p;});
+      return {lay:l,n:ps.length,med:median(ps)};
+    }).filter(function(g){ return g.n>=3; });
+    if(!groups.length){ svg.appendChild(txt(W/2,H/2,"Not enough priced listings",{anchor:"middle",size:9})); return; }
+    var max=Math.max.apply(null,groups.map(function(g){return g.med;}));
+    var band=(H-T-B)/groups.length, bh=Math.min(band-10,26);
+    groups.forEach(function(g,i){
+      var y=T+i*band+(band-bh)/2, w=(W-L-R)*(g.med/max);
+      svg.appendChild(txt(L-6,y+bh/2+3,g.lay,{anchor:"end",size:9,fill:"var(--ink-2)"}));
+      svg.appendChild(el("rect",{x:L,y:y,width:Math.max(w,2),height:bh,rx:3,fill:"var(--accent)"}));
+      svg.appendChild(txt(L+w+6,y+bh/2+1,fmtUSD(g.med),{size:9,fill:"var(--ink)"}));
+      svg.appendChild(txt(L+w+6,y+bh/2+10,g.n+" flats",{size:7,fill:"var(--ink-3)"}));
+    });
+    svg.appendChild(el("line",{x1:L,x2:L,y1:T,y2:H-B,stroke:"var(--line-strong)","stroke-width":1}));
+    svg.appendChild(txt(L,H-B+12,"$0",{size:7.5}));
+    svg.appendChild(txt(W-R,H-B+12,fmtUSD(max),{anchor:"end",size:7.5}));
+  }
+
+  function scatter(rows){
+    var svg=$("c3"); clear(svg);
+    var W=340,H=180,L=30,R=10,T=10,B=26;
+    var pts=rows.filter(function(r){return r.p!=null&&r.a!=null;});
+    if(pts.length<3){ svg.appendChild(txt(W/2,H/2,"Too few with both size and price",{anchor:"middle",size:9})); return; }
+    var AX=200, PY=2000;
+    var med=median(pts.map(function(r){return r.ppm;}).filter(function(v){return v!=null;}));
+    var sx=function(a){ return L+(W-L-R)*Math.min(a,AX)/AX; };
+    var sy=function(p){ return H-B-(H-T-B)*Math.min(p,PY)/PY; };
+    [0,0.5,1].forEach(function(f){
+      var y=T+(H-T-B)*(1-f);
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));
+      svg.appendChild(txt(L-5,y+3,f===0?"$0":"$"+Math.round(PY*f/1000*10)/10+"k",
+        {anchor:"end",size:7.5}));
+    });
+    if(med){
+      var xEnd=Math.min(AX,PY/med);
+      svg.appendChild(el("line",{x1:sx(0),y1:sy(0),x2:sx(xEnd),y2:sy(xEnd*med),
+        stroke:"var(--ink-3)","stroke-width":1,"stroke-dasharray":"3 3"}));
+      svg.appendChild(txt(sx(xEnd)-2,sy(xEnd*med)-4,
+        "median $"+med.toFixed(1)+"/m²",{anchor:"end",size:7,fill:"var(--ink-3)"}));
+    }
+    pts.forEach(function(r){
+      var good = med!=null && r.ppm!=null && r.ppm<med;
+      var c=el("circle",{cx:sx(r.a),cy:sy(r.p),r:2.6,
+        fill:good?"var(--signal)":"var(--accent)","fill-opacity":.62,
+        stroke:"var(--surface)","stroke-width":.6});
+      c.appendChild(el("title",{})).textContent =
+        fmtUSD(r.p)+" · "+Math.round(r.a)+" m²"+(r.ppm?" · $"+r.ppm.toFixed(1)+"/m²":"")+
+        (r.loc?" · "+r.loc:"");
+      svg.appendChild(c);
+    });
+    [0,50,100,150,200].forEach(function(v){
+      svg.appendChild(txt(sx(v),H-B+13,v+(v===200?"+ m²":""),
+        {anchor:v===0?"start":"middle",size:7.5}));
+    });
+  }
+
+  // ---- results ----------------------------------------------------------
+  function flagsOf(r){
+    var f=[];
+    if(r.sv) f.push("sea view"); if(r.fu===1) f.push("furnished");
+    if(r.fu===0) f.push("unfurnished"); if(r.pk) f.push("parking");
+    if(r.pet===1) f.push("pets ok"); if(r.pet===0) f.push("no pets");
+    if(r.ag===0) f.push("no commission"); if(r.np) f.push(r.np+" photo");
+    return f.join(" · ");
+  }
+
+  function render(){
+    var rows = ALL.filter(passes).sort(SORTS[state.sort]);
+    var prices=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
+    var areas=rows.map(function(r){return r.a;}).filter(function(v){return v!=null;});
+    var ppms=rows.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
+
+    $("tiles").innerHTML="";
+    [["Flats", rows.length.toLocaleString("en-US"), "of "+ALL.length.toLocaleString("en-US")+" collected"],
+     ["Median rent", fmtUSD(median(prices)), prices.length+" with a price"],
+     ["Median size", areas.length?Math.round(median(areas))+" m²":"—", areas.length+" with a size"],
+     ["Median $/m²", ppms.length?"$"+median(ppms).toFixed(1):"—", ppms.length+" with both"]
+    ].forEach(function(t){
+      var d=document.createElement("div"); d.className="tile";
+      d.innerHTML='<div class="k"></div><div class="v"></div><div class="sub"></div>';
+      d.querySelector(".k").textContent=t[0];
+      d.querySelector(".v").textContent=t[1];
+      d.querySelector(".sub").textContent=t[2];
+      $("tiles").appendChild(d);
+    });
+
+    histogram(rows); byLayout(rows); scatter(rows);
+
+    $("count").textContent = rows.length===ALL.length
+      ? "All "+rows.length+" flats"
+      : rows.length+" of "+ALL.length+" flats match";
+
+    var host=$("rows"); host.innerHTML="";
+    if(!rows.length){
+      var e=document.createElement("div"); e.className="empty";
+      e.textContent="No flat matches these filters. Try raising the budget or clearing the layout chips.";
+      host.replaceWith(e); e.id="rows"; return;
+    }
+    var medPpm = median(ppms);
+    rows.slice(0,400).forEach(function(r){
+      var b=document.createElement("button");
+      b.type="button"; b.className="row"+(medPpm&&r.ppm!=null&&r.ppm<medPpm?" good":"");
+      b.setAttribute("aria-expanded","false");
+      var spec=[r.lay||(r.r?r.r+" rooms":"?"), r.a?Math.round(r.a)+" m²":null,
+                r.fl?("floor "+r.fl+(r.ft?"/"+r.ft:"")):null].filter(Boolean).join(" · ");
+      b.innerHTML='<span class="price"></span><span class="spec"></span>'+
+                  '<span class="loc"></span><span class="flags"></span><span class="date"></span>';
+      b.querySelector(".price").innerHTML='<span></span><span class="ppm"></span>';
+      b.querySelector(".price>span").textContent=fmtUSD(r.p);
+      b.querySelector(".ppm").textContent=r.ppm?"$"+r.ppm.toFixed(1)+"/m²":"";
+      b.querySelector(".spec").textContent=spec;
+      b.querySelector(".loc").textContent=[r.loc,r.cx].filter(Boolean).join(" · ")||"location not stated";
+      b.querySelector(".flags").textContent=flagsOf(r);
+      b.querySelector(".date").textContent=r.d.slice(5);
+      b.addEventListener("click",function(){
+        var open=b.nextElementSibling&&b.nextElementSibling.className==="detail";
+        if(open){ b.nextElementSibling.remove(); b.setAttribute("aria-expanded","false"); return; }
+        var d=document.createElement("div"); d.className="detail";
+        var p=document.createElement("p"); p.textContent=r.txt||"(no text)";
+        var m=document.createElement("div"); m.className="meta";
+        var a=document.createElement("a"); a.href=r.url; a.target="_blank";
+        a.rel="noopener"; a.textContent="Open in Telegram ↗";
+        m.appendChild(a);
+        [r.ph,r.un,r.t==="long"?"long term":null,r.d].filter(Boolean).forEach(function(s){
+          var sp=document.createElement("span"); sp.textContent=s; m.appendChild(sp); });
+        d.appendChild(p); d.appendChild(m);
+        b.after(d); b.setAttribute("aria-expanded","true");
+      });
+      host.appendChild(b);
+    });
+    $("hint").textContent = rows.length>400
+      ? "Showing the first 400 — narrow the filters to see the rest"
+      : "Select a row to read the original post";
+  }
+
+  // ---- wiring -----------------------------------------------------------
+  function syncLabels(){
+    $("maxpv").textContent = state.maxp>=2500 ? "any" : "up to "+fmtUSD(state.maxp);
+    $("minav").textContent = state.mina>0 ? state.mina+" m² or more" : "any";
+    $("maxppmv").textContent = state.maxppm>=30 ? "any" : "under $"+state.maxppm;
+  }
+  function onInput(id,key,num){
+    $(id).addEventListener("input",function(e){
+      state[key]= num ? +e.target.value : e.target.value; syncLabels(); render(); });
+  }
+  onInput("q","q"); onInput("loc","loc"); onInput("sort","sort");
+  onInput("maxp","maxp",true); onInput("mina","mina",true); onInput("maxppm","maxppm",true);
+
+  layoutBox.addEventListener("click",function(e){
+    var b=e.target.closest(".chip"); if(!b) return;
+    var on=b.getAttribute("aria-pressed")==="true";
+    b.setAttribute("aria-pressed",String(!on));
+    state.layouts[b.dataset.lay]=!on; render();
+  });
+  $("feats").addEventListener("click",function(e){
+    var b=e.target.closest(".chip"); if(!b) return;
+    var on=b.getAttribute("aria-pressed")==="true";
+    b.setAttribute("aria-pressed",String(!on));
+    state.feats[b.dataset.f]=!on; render();
+  });
+  $("reset").addEventListener("click",function(){
+    state={q:"",loc:"",sort:"ppm",maxp:2500,mina:0,maxppm:30,layouts:{},feats:{}};
+    $("q").value=""; $("loc").value=""; $("sort").value="ppm";
+    $("maxp").value=2500; $("mina").value=0; $("maxppm").value=30;
+    document.querySelectorAll(".chip").forEach(function(c){ c.setAttribute("aria-pressed","false"); });
+    syncLabels(); render();
+  });
+
+  syncLabels(); render();
+})();
+</script>
