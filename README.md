@@ -75,6 +75,26 @@ sqlite3 data/rentals.db "SELECT district, COUNT(*), ROUND(AVG(price_usd))
   FROM v_offers WHERE term='long' GROUP BY 1 ORDER BY 3"
 ```
 
+## The dashboard
+
+A filterable board of every flat, live at
+**<https://leoamigood.github.io/batumi-rent/>** — sorted by value per m², with
+filters for budget, size, layout, street and features, and the original post one
+click away.
+
+The published copy is built with `--strip-contacts`, which clears the phone and
+handle fields *and* redacts numbers from the post text itself — the posters put
+those in a group chat, not on the open web. The local copy under `dashboard/`
+keeps them and is gitignored.
+
+```bash
+.venv/bin/python -m batumi_rent fetch      # new posts
+sh tools/deploy_pages.sh                   # rebuild docs/ and push; Pages redeploys
+.venv/bin/python tools/build_dashboard.py  # local copy, contacts intact
+```
+
+Open the local one with `open dashboard/index.html`.
+
 ## How it's put together
 
 | file | role |
@@ -85,6 +105,8 @@ sqlite3 data/rentals.db "SELECT district, COUNT(*), ROUND(AVG(price_usd))
 | `collect.py` | Telethon: join, backfill, live watch, re-parse |
 | `analyze.py` | filter → SQL, tables, CSV/JSON export, summaries |
 | `cli.py` | argparse front end |
+| `tools/build_dashboard.py` | exports `data.js` for the dashboard |
+| `docs/` | the static site GitHub Pages serves |
 
 Raw message text is stored separately from the parsed fields on purpose. When
 you improve a regex in `parser.py`, re-apply it to the whole archive without
