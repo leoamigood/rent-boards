@@ -1,6 +1,7 @@
 <title>Da Nang Rent Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!--LEAFLET-->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&family=Spectral:wght@600&display=swap">
 <style>
 :root{
@@ -73,7 +74,9 @@ input[type=range]{width:100%;accent-color:var(--blue)}
 
 .maprow{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(190px,1fr);
         gap:13px;margin-bottom:13px}
-#map{height:min(62vh,470px)}
+#mapbox{height:min(62vh,470px);border-radius:4px;overflow:hidden}
+#map{width:100%;height:100%}
+.leaflet-container{background:var(--surface-2)!important;font:inherit}
 .mapkey{background:var(--surface);border:1px solid var(--line);border-radius:6px;
         padding:13px 15px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .keyrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;
@@ -84,7 +87,7 @@ input[type=range]{width:100%;accent-color:var(--blue)}
 .keyrow[aria-pressed="true"] .kname{color:var(--blue-ink);font-weight:700}
 .kname{font-size:12.5px;overflow-wrap:anywhere}
 .kval{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap}
-@media (max-width:760px){.maprow{grid-template-columns:1fr}#map{height:56vh}}
+@media (max-width:760px){.maprow{grid-template-columns:1fr}#mapbox{height:56vh}}
 .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
         gap:13px;margin-bottom:24px}
 figure{margin:0;background:var(--surface);border:1px solid var(--line);
@@ -209,8 +212,9 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     <figure>
       <figcaption>Where the listings are</figcaption>
       <p class="cap">Each dot is one flat, placed by the ad's own coordinates</p>
-      <svg id="map" viewBox="0 0 560 480" preserveAspectRatio="xMidYMid meet"
-           role="img" aria-label="Map of rental listings across Da Nang"></svg>
+      <div id="mapbox"><svg id="map" viewBox="0 0 560 480"
+           preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="Map of rental listings across Da Nang"></svg></div>
       <div class="legend-row">
         <span class="lg"><span class="dot" style="background:var(--amber)"></span>better value than median</span>
         <span class="lg"><span class="dot" style="background:var(--blue)"></span>at or above median</span>
@@ -551,6 +555,56 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     svg.appendChild(txt(bx+barW+6,by+3,km+" km",{size:8}));
   }
 
+  // ---- real basemap, when the host allows one ------------------------------
+  // Carto's tiles are blocked inside the artifact sandbox along with every
+  // other third-party image, so Leaflet is only present in the hosted build.
+  // Same data, same colours, same click-through either way.
+  var lmap=null, llayer=null, lfitted=false;
+
+  function initLeaflet(){
+    var box=$("mapbox");
+    box.innerHTML="";
+    lmap=L.map(box,{preferCanvas:true,scrollWheelZoom:false,zoomControl:true});
+    var root=document.documentElement;
+    var dark=root.getAttribute("data-theme")==="dark" ||
+             (root.getAttribute("data-theme")!=="light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+    L.tileLayer("https://basemaps.cartocdn.com/"+(dark?"dark_all":"light_all")+
+                "/{z}/{x}/{y}{r}.png",{
+      maxZoom:19, attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'+
+        ' contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }).addTo(lmap);
+    llayer=L.layerGroup().addTo(lmap);
+    lmap.setView([16.047,108.20],12);
+  }
+
+  function drawLeaflet(matched){
+    if(!lmap) return;
+    llayer.clearLayers();
+    var pp=matched.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
+    var med=median(pp);
+    var css=getComputedStyle(document.documentElement);
+    var blue=css.getPropertyValue("--blue").trim()||"#1D6FB8";
+    var amber=css.getPropertyValue("--amber").trim()||"#B5651A";
+    var pts=[];
+    matched.forEach(function(r){
+      if(!r.lat||!r.lon) return;
+      var good=med!=null&&r.ppm!=null&&r.ppm<med;
+      pts.push([r.lat,r.lon]);
+      L.circleMarker([r.lat,r.lon],{radius:5,weight:1,color:"#fff",opacity:.85,
+        fillColor:good?amber:blue,fillOpacity:.85})
+        .bindTooltip(both(r)+(r.a?" · "+Math.round(r.a)+" m²":"")+
+          (r.bd!=null?" · "+r.bd+" bed":""))
+        .on("click",function(){openListing(r.id);})
+        .addTo(llayer);
+    });
+    if(pts.length && !lfitted){
+      lmap.fitBounds(L.latLngBounds(pts).pad(0.06));
+      lfitted=true;
+    }
+  }
+
   function openListing(id){
     var host=$("rows");
     var btn=host.querySelector('[data-id="'+id+'"]');
@@ -614,7 +668,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     });
 
     histogram(rows);byDistrict(rows);scatter(rows);
-    drawMap(rows);drawKey(rows);
+    if(lmap) drawLeaflet(rows); else drawMap(rows);
+    drawKey(rows);
     $("count").textContent=rows.length===ALL.length
       ? "All "+rows.length.toLocaleString("en-US")+" listings"
       : rows.length.toLocaleString("en-US")+" of "+ALL.length.toLocaleString("en-US")+" match";
@@ -653,6 +708,13 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         var m=document.createElement("div");m.className="meta";
         var a=document.createElement("a");a.href=r.url;a.target="_blank";
         a.rel="noopener";a.textContent="Open on Chotot ↗";m.appendChild(a);
+        if(r.lat&&r.lon){
+          // Works in every host: a plain outbound link, not an embedded map.
+          var g=document.createElement("a");
+          g.href="https://www.google.com/maps/search/?api=1&query="+r.lat+","+r.lon;
+          g.target="_blank";g.rel="noopener";g.textContent="Show on Google Maps \u2197";
+          m.appendChild(g);
+        }
         [r.ph,shortDist(r.dist),r.d].filter(Boolean).forEach(function(s){
           var sp=document.createElement("span");sp.textContent=s;m.appendChild(sp);});
         d.appendChild(p);d.appendChild(m);b.after(d);b.setAttribute("aria-expanded","true");
@@ -710,6 +772,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     markPeriod($("periods").firstElementChild);syncLabels();render();
   });
 
+  if(window.L && $("mapbox")) initLeaflet();
   syncLabels();render();
 })();
 </script>
