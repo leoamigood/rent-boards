@@ -58,8 +58,10 @@ h1{font-family:var(--display);font-weight:600;font-size:clamp(30px,5vw,44px);
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 label,.lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;
            text-transform:uppercase;color:var(--ink-3)}
-input[type=search],select{font:inherit;color:var(--ink);background:var(--surface-2);
-  border:1px solid var(--line-strong);border-radius:4px;padding:7px 9px;width:100%}
+input[type=search],input[type=date],select{font:inherit;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--line-strong);border-radius:4px;
+  padding:7px 9px;width:100%;font-variant-numeric:tabular-nums}
+input[type=date]{font-family:var(--mono);font-size:12.5px}
 input[type=range]{width:100%;accent-color:var(--indigo)}
 .rangeval{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -174,6 +176,26 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         <button class="reset" id="reset" type="button">Clear all filters</button>
       </div>
     </div>
+    <div class="frow">
+      <div class="field" style="grid-column:1/-1">
+        <span class="lbl">Period — <span class="rangeval" id="periodv"></span></span>
+        <div class="chips" id="periods">
+          <button class="chip" type="button" data-days="0" aria-pressed="true">Everything</button>
+          <button class="chip" type="button" data-days="30" aria-pressed="false">Last 30 days</button>
+          <button class="chip" type="button" data-days="90" aria-pressed="false">3 months</button>
+          <button class="chip" type="button" data-days="180" aria-pressed="false">6 months</button>
+          <button class="chip" type="button" data-days="365" aria-pressed="false">12 months</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="from">From</label>
+        <input type="date" id="from">
+      </div>
+      <div class="field">
+        <label for="to">To</label>
+        <input type="date" id="to">
+      </div>
+    </div>
   </section>
 
   <section class="tiles" id="tiles" aria-label="Summary of the current selection"></section>
@@ -238,7 +260,23 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("n-offer").textContent=ALL.filter(function(r){return r.deal==="rent_offer";}).length;
   $("n-seek").textContent=ALL.filter(function(r){return r.deal==="rent_seek";}).length;
 
-  var state={deal:"rent_offer",city:{},beds:{},maxp:1500,q:"",sort:"price"};
+  // Presets count back from the newest post in the archive, not from today —
+  // the data is a snapshot, and "last 30 days" of a file built in September
+  // must not go empty just because it is read in December.
+  var dates=ALL.map(function(r){return r.d;}).filter(Boolean).sort();
+  var DMIN=dates[0]||"", DMAX=dates[dates.length-1]||"";
+  function shiftDays(iso,n){
+    var d=new Date(iso+"T00:00:00Z");
+    d.setUTCDate(d.getUTCDate()-n);
+    return d.toISOString().slice(0,10);
+  }
+
+  var state={deal:"rent_offer",city:{},beds:{},maxp:1500,q:"",sort:"price",
+             from:DMIN,to:DMAX};
+
+  ["from","to"].forEach(function(id){
+    var i=$(id); i.min=DMIN; i.max=DMAX; i.value=state[id];
+  });
 
   var cityBox=$("cities");
   CITIES.forEach(function(c){
@@ -260,6 +298,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
 
   function passes(r){
     if(r.deal!==state.deal) return false;
+    if(state.from && r.d<state.from) return false;
+    if(state.to && r.d>state.to) return false;
     if(state.maxp<1500 && !(r.p!=null && r.p<=state.maxp)) return false;
     var cs=Object.keys(state.city).filter(function(k){return state.city[k];});
     if(cs.length && cs.indexOf(r.city)<0) return false;
@@ -325,7 +365,12 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     var g={};
     rows.forEach(function(r){if(r.p!=null)(g[r.d.slice(0,7)]=g[r.d.slice(0,7)]||[]).push(r.p);});
     var ms=Object.keys(g).sort().filter(function(m){return g[m].length>=6;});
-    if(ms.length<3){svg.appendChild(txt(W/2,H/2,"Too few months in this selection",{anchor:"middle",size:9}));return;}
+    if(ms.length<3){
+      svg.appendChild(txt(W/2,H/2-4,"Not enough months to show a trend",
+        {anchor:"middle",size:9,fill:"var(--ink-2)"}));
+      svg.appendChild(txt(W/2,H/2+9,"Widen the period above",{anchor:"middle",size:8}));
+      return;
+    }
     var pts=ms.map(function(m){return {m:m,v:median(g[m]),n:g[m].length};});
     var top=Math.max.apply(null,pts.map(function(p){return p.v;}))*1.15;
     var sx=function(i){return L+(W-L-R)*(ms.length===1?0:i/(ms.length-1));};
@@ -357,11 +402,16 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   function byCity(rows){
     var svg=$("c3");clear(svg);
     var W=340,H=180,L=56,R=26,T=10,B=20;
+    // Deliberately ignores the Offered/Wanted toggle — showing both sides at
+    // once is the point — but it honours the period, or the date filter would
+    // move three charts and leave this one contradicting them.
+    var span=ALL.filter(function(r){
+      return (!state.from||r.d>=state.from)&&(!state.to||r.d<=state.to);});
     var cs=CITIES.map(function(c){
       return {c:c,
-        o:ALL.filter(function(r){return r.city===c&&r.deal==="rent_offer";}).length,
-        s:ALL.filter(function(r){return r.city===c&&r.deal==="rent_seek";}).length};
-    }).filter(function(x){return x.o+x.s>=20;});
+        o:span.filter(function(r){return r.city===c&&r.deal==="rent_offer";}).length,
+        s:span.filter(function(r){return r.city===c&&r.deal==="rent_seek";}).length};
+    }).filter(function(x){return x.o+x.s>=Math.max(4,span.length/80);});
     if(!cs.length)return;
     cs.sort(function(a,b){return (b.o+b.s)-(a.o+a.s);});
     var max=Math.max.apply(null,cs.map(function(x){return Math.max(x.o,x.s);}));
@@ -463,7 +513,38 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   function syncLabels(){
     $("maxpv").textContent=state.maxp>=1500?"any":"up to "+usd(state.maxp)+
       " ("+(state.maxp*25500/1e6).toFixed(0)+" млн)";
+    $("periodv").textContent=(state.from===DMIN&&state.to===DMAX)
+      ? "the whole archive, "+DMIN+" to "+DMAX
+      : state.from+" to "+state.to;
+    $("from").value=state.from; $("to").value=state.to;
   }
+
+  function markPeriod(chip){
+    Array.prototype.forEach.call($("periods").children,function(c){
+      c.setAttribute("aria-pressed",String(c===chip));
+    });
+  }
+
+  $("periods").addEventListener("click",function(e){
+    var b=e.target.closest(".chip"); if(!b) return;
+    var days=+b.dataset.days;
+    state.from=days?shiftDays(DMAX,days):DMIN;
+    state.to=DMAX;
+    if(state.from<DMIN) state.from=DMIN;
+    markPeriod(b); syncLabels(); render();
+  });
+
+  ["from","to"].forEach(function(id){
+    $(id).addEventListener("change",function(e){
+      var v=e.target.value;
+      if(!v){ state[id]=(id==="from"?DMIN:DMAX); }
+      else { state[id]=v; }
+      if(state.from>state.to){            // keep the range the right way round
+        if(id==="from") state.to=state.from; else state.from=state.to;
+      }
+      markPeriod(null); syncLabels(); render();
+    });
+  });
   $("sides").addEventListener("click",function(e){
     var b=e.target.closest(".side");if(!b)return;
     state.deal=b.dataset.deal;
@@ -487,9 +568,11 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("maxp").addEventListener("input",function(e){
     state.maxp=+e.target.value;syncLabels();render();});
   $("reset").addEventListener("click",function(){
-    state={deal:state.deal,city:{},beds:{},maxp:1500,q:"",sort:"price"};
+    state={deal:state.deal,city:{},beds:{},maxp:1500,q:"",sort:"price",
+           from:DMIN,to:DMAX};
     $("q").value="";$("sort").value="price";$("maxp").value=1500;
     document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
+    markPeriod($("periods").firstElementChild);
     syncLabels();render();
   });
 
