@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS messages (
     reply_to        INTEGER,
     n_photos        INTEGER NOT NULL DEFAULT 0,
     link            TEXT,
+    raw             TEXT,
     fetched_at      TEXT    NOT NULL,
     PRIMARY KEY (chat, msg_id)
 );
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS listings (
     complex_name    TEXT,
     address         TEXT,
     city            TEXT,
+    kind            TEXT,
     furnished       INTEGER,       -- 1 yes / 0 no / NULL unknown
     pets            INTEGER,
     sea_view        INTEGER,
@@ -92,30 +94,37 @@ WHERE  l.deal_type = 'rent_offer';
 
 MESSAGE_COLUMNS = (
     "chat", "msg_id", "date_utc", "edit_date", "sender_id", "sender_username",
-    "sender_name", "text", "grouped_id", "reply_to", "n_photos", "link", "fetched_at",
+    "sender_name", "text", "grouped_id", "reply_to", "n_photos", "link", "raw",
+    "fetched_at",
 )
 
 LISTING_COLUMNS = (
     "chat", "msg_id", "date_utc", "deal_type", "term", "price", "currency",
     "price_usd", "price_max_usd", "rooms", "bedrooms", "layout", "area_sqm",
-    "floor", "floors_total", "district", "complex_name", "address", "city", "furnished", "pets",
+    "floor", "floors_total", "district", "complex_name", "address", "city", "kind", "furnished", "pets",
     "sea_view", "parking", "available_from", "is_agent", "phone", "contact",
     "lang", "dup_key", "usd_per_sqm", "parser_version", "parsed_at",
 )
 
 
 # Columns added after the first release, applied to databases already on disk.
-MIGRATIONS: dict[str, str] = {"address": "TEXT", "city": "TEXT"}
+MIGRATIONS: dict[str, dict[str, str]] = {
+    "listings": {"address": "TEXT", "city": "TEXT", "kind": "TEXT"},
+    "messages": {"raw": "TEXT"},
+}
 
 
 def connect(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
-    existing = {r[1] for r in conn.execute("PRAGMA table_info(listings)")}
-    for column, ddl in MIGRATIONS.items():
-        if existing and column not in existing:
-            conn.execute(f"ALTER TABLE listings ADD COLUMN {column} {ddl}")
+    for table, columns in MIGRATIONS.items():
+        existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if not existing:
+            continue
+        for column, ddl in columns.items():
+            if column not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
     conn.executescript(SCHEMA)
     return conn
 

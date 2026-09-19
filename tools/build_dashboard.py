@@ -30,6 +30,17 @@ _DIGIT_RUN = re.compile(r"\+?\d[\d\s\-()]{7,}\d")
 _HANDLE = re.compile(r"@[A-Za-z][A-Za-z0-9_]{4,31}")
 
 
+# Classifieds text arrives with the odd replacement/object character and
+# stray control codes; they carry no meaning and break the publish step.
+_JUNK_CHARS = {0xFFFD, 0xFFFC, 0x0B, 0x0C,
+               *range(0x00, 0x09), *range(0x0E, 0x20)}
+_JUNK_MAP = dict.fromkeys(_JUNK_CHARS)
+
+
+def clean(text: str) -> str:
+    return text.translate(_JUNK_MAP)
+
+
 def scrub(text: str) -> str:
     def hide(m: re.Match[str]) -> str:
         return "[contact hidden]" if sum(c.isdigit() for c in m.group(0)) >= 9 else m.group(0)
@@ -62,7 +73,7 @@ def main() -> int:
 
     out = []
     for r in rows:
-        text = (r["text"] or "").strip()
+        text = clean((r["text"] or "").strip())
         if args.strip_contacts:
             text = scrub(text)
         out.append({
@@ -73,6 +84,7 @@ def main() -> int:
             "raw": r["price"],
             "cur": r["currency"],
             "city": r["city"],
+            "kind": r["kind"],
             "bd": r["bedrooms"],
             "a": r["area_sqm"],
             "r": r["rooms"],
@@ -80,6 +92,7 @@ def main() -> int:
             "fl": r["floor"],
             "ft": r["floors_total"],
             "loc": r["address"] or r["district"],
+            "dist": r["district"],
             "cx": r["complex_name"],
             "ppm": r["usd_per_sqm"],
             "t": r["term"],

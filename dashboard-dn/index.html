@@ -1,0 +1,524 @@
+<title>Da Nang Rent Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&family=Spectral:wght@600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#F0F2F5; --surface:#FBFBFC; --surface-2:#F4F6F9;
+  --ink:#141A22; --ink-2:#4C5663; --ink-3:#78828F;
+  --line:#DCE1E8; --line-strong:#C4CBD5; --chip:#E6EAF0;
+  --blue:#1D6FB8; --blue-ink:#155A97; --amber:#B5651A; --amber-ink:#8E4E12;
+  --sans:"DM Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --display:"Spectral",Georgia,serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme: dark;
+  --ground:#0E1218; --surface:#141821; --surface-2:#1B212C;
+  --ink:#E7EBF1; --ink-2:#A6B0BD; --ink-3:#7A8492;
+  --line:#242C38; --line-strong:#354050; --chip:#1E2530;
+  --blue:#4793D8; --blue-ink:#6FACE4; --amber:#BC8226; --amber-ink:#D29A3D;
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0E1218; --surface:#141821; --surface-2:#1B212C;
+  --ink:#E7EBF1; --ink-2:#A6B0BD; --ink-3:#7A8492;
+  --line:#242C38; --line-strong:#354050; --chip:#1E2530;
+  --blue:#4793D8; --blue-ink:#6FACE4; --amber:#BC8226; --amber-ink:#D29A3D;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+     font-size:14px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:26px 56px}
+h1,h2{text-wrap:balance;margin:0}
+a{color:var(--blue-ink)}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--ink-3);margin:0 0 9px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(30px,5vw,44px);
+   line-height:1.05;letter-spacing:-.01em}
+.standfirst{color:var(--ink-2);margin:10px 0 0;max-width:64ch}
+.masthead{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:18px}
+
+.filters{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+         padding:15px 17px;display:grid;gap:15px;margin-bottom:18px}
+.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+label,.lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+           text-transform:uppercase;color:var(--ink-3)}
+input[type=search],select{font:inherit;color:var(--ink);background:var(--surface-2);
+  border:1px solid var(--line-strong);border-radius:4px;padding:7px 9px;width:100%}
+input[type=range]{width:100%;accent-color:var(--blue)}
+.rangeval{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;background:var(--chip);color:var(--ink-2);
+  border:1px solid transparent;border-radius:999px;padding:4px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--blue);color:#fff;border-color:var(--blue)}
+.chip:hover{border-color:var(--blue)}
+.chip .n{font-family:var(--mono);font-size:10.5px;opacity:.7;margin-left:4px}
+.reset{background:none;border:1px solid var(--line-strong);border-radius:4px;
+  padding:7px 12px;font:inherit;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.reset:hover{border-color:var(--blue);color:var(--blue-ink)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));
+       gap:1px;background:var(--line);border:1px solid var(--line);
+       border-radius:6px;overflow:hidden;margin-bottom:18px}
+.tile{background:var(--surface);padding:13px 15px}
+.tile .k{font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--ink-3)}
+.tile .v{font-family:var(--mono);font-variant-numeric:tabular-nums;
+         font-size:25px;font-weight:500;line-height:1.15;margin-top:3px}
+.tile .sub{font-size:12px;color:var(--ink-3);margin-top:1px}
+
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+        gap:13px;margin-bottom:24px}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);
+       border-radius:6px;padding:13px 15px 9px}
+figcaption{font-size:13px;font-weight:700;margin-bottom:2px}
+.cap{font-size:12px;color:var(--ink-3);margin-bottom:8px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.legend-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.lg{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-2)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+
+.resulthead{display:flex;justify-content:space-between;align-items:baseline;
+            gap:12px;flex-wrap:wrap;margin-bottom:10px}
+h2{font-family:var(--display);font-weight:600;font-size:20px}
+.rows{display:flex;flex-direction:column;gap:1px;background:var(--line);
+      border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.row{background:var(--surface);display:grid;gap:3px 14px;padding:11px 15px;
+     grid-template-columns:118px 122px 1fr auto auto;align-items:baseline;
+     cursor:pointer;border:none;text-align:left;font:inherit;color:inherit;width:100%}
+.row:hover{background:var(--surface-2)}
+.row .price{font-family:var(--mono);font-variant-numeric:tabular-nums;
+            font-size:15px;font-weight:700}
+.row .usd{font-family:var(--mono);font-size:11px;color:var(--ink-3);display:block;
+          font-weight:400}
+.row .spec{font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.row .loc{font-size:13px;min-width:0;overflow-wrap:anywhere}
+.row .flags{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.row .date{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.good .price{color:var(--amber-ink)}
+.detail{background:var(--surface-2);padding:14px 16px;border-top:1px dashed var(--line-strong)}
+.detail p{margin:0 0 10px;white-space:pre-wrap;font-size:13px;color:var(--ink-2);
+          max-width:72ch;overflow-wrap:anywhere}
+.detail .meta{font-family:var(--mono);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+       padding:32px;text-align:center;color:var(--ink-2)}
+footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
+       font-size:12px;color:var(--ink-3);display:flex;gap:18px;flex-wrap:wrap}
+@media (max-width:640px){
+  .row{grid-template-columns:116px 1fr;grid-template-areas:"price spec" "price loc" "price flags"}
+  .row .price{grid-area:price}.row .spec{grid-area:spec}
+  .row .loc{grid-area:loc}.row .flags{grid-area:flags}.row .date{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow" id="provenance">loading…</p>
+    <h1>Da Nang Rent Board</h1>
+    <p class="standfirst">Every apartment, house and room listed for rent in Da Nang
+      on Chotot, ranked by value per square metre. Prices are the landlord's own,
+      in millions of dong, with a dollar conversion underneath.</p>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <div class="frow" style="grid-template-columns:1fr">
+      <div class="field">
+        <span class="lbl">District</span>
+        <div class="chips" id="dists"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Property</span>
+        <div class="chips" id="kinds"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Bedrooms</span>
+        <div class="chips" id="beds"></div>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="field">
+        <label for="maxp">Budget ceiling — <span class="rangeval" id="maxpv"></span></label>
+        <input type="range" id="maxp" min="100" max="3000" step="50" value="3000">
+      </div>
+      <div class="field">
+        <label for="mina">Minimum size — <span class="rangeval" id="minav"></span></label>
+        <input type="range" id="mina" min="0" max="200" step="5" value="0">
+      </div>
+      <div class="field">
+        <label for="sort">Sort by</label>
+        <select id="sort">
+          <option value="ppm">Best value ($/m²)</option>
+          <option value="price">Cheapest first</option>
+          <option value="pricedesc">Most expensive first</option>
+          <option value="area">Largest first</option>
+          <option value="date">Most recently listed</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="q">Search text</label>
+        <input type="search" id="q" placeholder="An Thượng, hồ bơi, full nội thất…">
+      </div>
+    </div>
+    <div class="frow">
+      <div class="field" style="grid-column:1/-1">
+        <span class="lbl">Listed — <span class="rangeval" id="periodv"></span></span>
+        <div class="chips" id="periods">
+          <button class="chip" type="button" data-days="0" aria-pressed="true">Everything</button>
+          <button class="chip" type="button" data-days="7" aria-pressed="false">Last 7 days</button>
+          <button class="chip" type="button" data-days="14" aria-pressed="false">14 days</button>
+          <button class="chip" type="button" data-days="30" aria-pressed="false">30 days</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="from">From</label>
+        <input type="date" id="from">
+      </div>
+      <div class="field">
+        <label for="to">To</label>
+        <input type="date" id="to">
+      </div>
+      <div class="field">
+        <label for="reset">&nbsp;</label>
+        <button class="reset" id="reset" type="button">Clear all filters</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="tiles" id="tiles" aria-label="Summary of the current selection"></section>
+
+  <section class="charts">
+    <figure>
+      <figcaption>What rent costs</figcaption>
+      <p class="cap">Listings per price band, monthly</p>
+      <svg id="c1" viewBox="0 0 340 180" role="img" aria-label="Distribution of monthly rent"></svg>
+    </figure>
+    <figure>
+      <figcaption>Median rent by district</figcaption>
+      <p class="cap">Da Nang's seven districts</p>
+      <svg id="c2" viewBox="0 0 340 180" role="img" aria-label="Median rent for each district"></svg>
+    </figure>
+    <figure>
+      <figcaption>Size against price</figcaption>
+      <p class="cap">Below the line is cheaper per m² than the median</p>
+      <svg id="c3" viewBox="0 0 340 180" role="img" aria-label="Floor area against monthly rent"></svg>
+      <div class="legend-row">
+        <span class="lg"><span class="dot" style="background:var(--amber)"></span>better value than median</span>
+        <span class="lg"><span class="dot" style="background:var(--blue)"></span>at or above median</span>
+      </div>
+    </figure>
+  </section>
+
+  <div class="resulthead">
+    <h2 id="count">Listings</h2>
+    <p class="rangeval" id="hint">Select a row to read the original ad</p>
+  </div>
+  <div class="rows" id="rows"></div>
+
+  <footer>
+    <span id="built"></span>
+    <span>Dong converted at 25,500 to the dollar. Figures are the landlord's own and unverified.</span>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  "use strict";
+  var ALL=(window.LISTINGS||[]), META=(window.META||{});
+  var $=function(id){return document.getElementById(id);};
+  var usd=function(v){return v==null?"—":"$"+Math.round(v).toLocaleString("en-US");};
+  var median=function(a){if(!a.length)return null;var s=a.slice().sort(function(x,y){return x-y;});
+    var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+  // District names are long; the ward prefix carries no information here.
+  var shortDist=function(d){return (d||"").replace(/^(Quận|Huyện)\s+/,"");};
+  var trieu=function(r){
+    if(r.cur==="VND"&&r.raw) return (r.raw/1e6).toFixed(1).replace(/\.0$/,"")+" tr";
+    return r.p!=null?usd(r.p):"—";
+  };
+  var KINDS=[["apartment","Apartment"],["house","House"],["room","Room"]];
+
+  $("provenance").textContent="chotot.com · Da Nang · "+
+    ALL.length.toLocaleString("en-US")+" distinct listings · "+(META.from||"")+" to "+(META.to||"");
+  $("built").textContent="Built "+(META.built||"")+" from "+
+    (META.posts||0).toLocaleString("en-US")+" ads.";
+
+  var dates=ALL.map(function(r){return r.d;}).filter(Boolean).sort();
+  var DMIN=dates[0]||"",DMAX=dates[dates.length-1]||"";
+  function shiftDays(iso,n){var d=new Date(iso+"T00:00:00Z");
+    d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
+
+  var state={dist:{},kind:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",from:DMIN,to:DMAX};
+  ["from","to"].forEach(function(id){var i=$(id);i.min=DMIN;i.max=DMAX;i.value=state[id];});
+
+  var counts={};
+  ALL.forEach(function(r){if(r.dist)counts[r.dist]=(counts[r.dist]||0)+1;});
+  Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];}).forEach(function(d){
+    var b=document.createElement("button");
+    b.type="button";b.className="chip";b.setAttribute("aria-pressed","false");
+    b.dataset.dist=d;b.innerHTML='<span></span><span class="n"></span>';
+    b.firstChild.textContent=shortDist(d);b.lastChild.textContent=counts[d];
+    $("dists").appendChild(b);
+  });
+  KINDS.forEach(function(p){
+    var n=ALL.filter(function(r){return r.kind===p[0];}).length;
+    if(!n)return;
+    var b=document.createElement("button");
+    b.type="button";b.className="chip";b.setAttribute("aria-pressed","false");
+    b.dataset.kind=p[0];b.innerHTML='<span></span><span class="n"></span>';
+    b.firstChild.textContent=p[1];b.lastChild.textContent=n;
+    $("kinds").appendChild(b);
+  });
+  [[0,"studio / room"],[1,"1 bed"],[2,"2 beds"],[3,"3 beds"],[4,"4+ beds"]].forEach(function(p){
+    var b=document.createElement("button");
+    b.type="button";b.className="chip";b.setAttribute("aria-pressed","false");
+    b.dataset.bed=p[0];b.textContent=p[1];$("beds").appendChild(b);
+  });
+
+  function passes(r){
+    if(state.from&&r.d<state.from) return false;
+    if(state.to&&r.d>state.to) return false;
+    if(state.maxp<3000&&!(r.p!=null&&r.p<=state.maxp)) return false;
+    if(state.mina>0&&!(r.a!=null&&r.a>=state.mina)) return false;
+    var ds=Object.keys(state.dist).filter(function(k){return state.dist[k];});
+    if(ds.length&&ds.indexOf(r.dist)<0) return false;
+    var ks=Object.keys(state.kind).filter(function(k){return state.kind[k];});
+    if(ks.length&&ks.indexOf(r.kind)<0) return false;
+    var bs=Object.keys(state.beds).filter(function(k){return state.beds[k];});
+    if(bs.length){
+      if(r.bd==null) return false;
+      if(bs.indexOf(String(Math.min(r.bd,4)))<0) return false;
+    }
+    if(state.q){
+      var hay=((r.txt||"")+" "+(r.loc||"")+" "+(r.dist||"")+" "+(r.cx||"")).toLowerCase();
+      if(hay.indexOf(state.q.toLowerCase())<0) return false;
+    }
+    return true;
+  }
+  var SORTS={
+    ppm:function(a,b){return (a.ppm==null)-(b.ppm==null)||a.ppm-b.ppm;},
+    price:function(a,b){return (a.p==null)-(b.p==null)||a.p-b.p;},
+    pricedesc:function(a,b){return (a.p==null)-(b.p==null)||b.p-a.p;},
+    area:function(a,b){return (a.a==null)-(b.a==null)||b.a-a.a;},
+    date:function(a,b){return a.d<b.d?1:a.d>b.d?-1:0;}
+  };
+
+  var NS="http://www.w3.org/2000/svg";
+  function el(t,a){var n=document.createElementNS(NS,t);for(var k in a)n.setAttribute(k,a[k]);return n;}
+  function txt(x,y,s,o){o=o||{};var t=el("text",{x:x,y:y,
+    "font-family":"Roboto Mono, monospace","font-size":o.size||8,
+    fill:o.fill||"var(--ink-3)","text-anchor":o.anchor||"start",
+    "font-variant-numeric":"tabular-nums"});t.textContent=s;return t;}
+  function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
+
+  function histogram(rows){
+    var svg=$("c1");clear(svg);
+    var W=340,H=180,L=30,R=8,T=10,B=26;
+    var pr=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
+    if(!pr.length){svg.appendChild(txt(W/2,H/2,"No priced listings",{anchor:"middle",size:9}));return;}
+    var STEP=100,MAX=2000,bins=new Array(MAX/STEP+1).fill(0);
+    pr.forEach(function(p){bins[Math.min(Math.floor(p/STEP),MAX/STEP)]++;});
+    var peak=Math.max.apply(null,bins),bw=(W-L-R)/bins.length;
+    [0,0.5,1].forEach(function(f){
+      var y=T+(H-T-B)*(1-f);
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));
+      svg.appendChild(txt(L-5,y+3,Math.round(peak*f),{anchor:"end",size:7.5}));
+    });
+    bins.forEach(function(n,i){
+      if(!n)return;
+      var h=(H-T-B)*(n/peak),x=L+i*bw+1,y=H-B-h;
+      svg.appendChild(el("rect",{x:x,y:y,width:Math.max(bw-2,1),height:h,rx:2,fill:"var(--blue)"}));
+      var g=el("rect",{x:x-1,y:T,width:bw,height:H-T-B,fill:"transparent"});
+      g.appendChild(el("title",{})).textContent="$"+(i*STEP)+
+        (i===bins.length-1?"+":"–$"+((i+1)*STEP-1))+" · "+n+" listings";
+      svg.appendChild(g);
+    });
+    [0,500,1000,1500,2000].forEach(function(v){
+      var lab="$"+(v>=1000?(v/1000)+"k":v)+(v===MAX?"+":"");
+      svg.appendChild(txt(L+(v/STEP)*bw,H-B+13,lab,
+        {anchor:v===0?"start":(v===MAX?"end":"middle"),size:7.5}));
+    });
+  }
+
+  function byDistrict(rows){
+    var svg=$("c2");clear(svg);
+    var W=340,H=180,L=62,R=40,T=10,B=20;
+    var g={};
+    rows.forEach(function(r){if(r.dist&&r.p!=null)(g[r.dist]=g[r.dist]||[]).push(r.p);});
+    var ds=Object.keys(g).filter(function(d){return g[d].length>=5;})
+      .map(function(d){return {d:d,n:g[d].length,m:median(g[d])};});
+    if(!ds.length){svg.appendChild(txt(W/2,H/2,"Not enough listings",{anchor:"middle",size:9}));return;}
+    ds.sort(function(a,b){return a.m-b.m;});
+    var max=Math.max.apply(null,ds.map(function(x){return x.m;}));
+    var band=(H-T-B)/ds.length,bh=Math.min(band-5,15);
+    ds.forEach(function(x,i){
+      var y=T+i*band+(band-bh)/2,w=(W-L-R)*(x.m/max);
+      svg.appendChild(txt(L-6,y+bh/2+3,shortDist(x.d),{anchor:"end",size:7.5,fill:"var(--ink-2)"}));
+      var bar=el("rect",{x:L,y:y,width:Math.max(w,2),height:bh,rx:2,fill:"var(--blue)"});
+      bar.appendChild(el("title",{})).textContent=shortDist(x.d)+" · median "+usd(x.m)+" · "+x.n+" listings";
+      svg.appendChild(bar);
+      svg.appendChild(txt(L+w+5,y+bh/2+1,usd(x.m),{size:8,fill:"var(--ink)"}));
+      svg.appendChild(txt(L+w+5,y+bh/2+9,x.n,{size:6.5,fill:"var(--ink-3)"}));
+    });
+    svg.appendChild(el("line",{x1:L,x2:L,y1:T,y2:H-B,stroke:"var(--line-strong)","stroke-width":1}));
+  }
+
+  function scatter(rows){
+    var svg=$("c3");clear(svg);
+    var W=340,H=180,L=32,R=10,T=10,B=26;
+    var pts=rows.filter(function(r){return r.p!=null&&r.a!=null;});
+    if(pts.length<3){svg.appendChild(txt(W/2,H/2,"Too few with both size and price",{anchor:"middle",size:9}));return;}
+    var AX=200,PY=2000;
+    var med=median(pts.map(function(r){return r.ppm;}).filter(function(v){return v!=null;}));
+    var sx=function(a){return L+(W-L-R)*Math.min(a,AX)/AX;};
+    var sy=function(p){return H-B-(H-T-B)*Math.min(p,PY)/PY;};
+    [0,0.5,1].forEach(function(f){
+      var y=T+(H-T-B)*(1-f);
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));
+      svg.appendChild(txt(L-5,y+3,f===0?"$0":"$"+(PY*f/1000)+"k",{anchor:"end",size:7.5}));
+    });
+    if(med){
+      var xEnd=Math.min(AX,PY/med);
+      svg.appendChild(el("line",{x1:sx(0),y1:sy(0),x2:sx(xEnd),y2:sy(xEnd*med),
+        stroke:"var(--ink-3)","stroke-width":1,"stroke-dasharray":"3 3"}));
+      svg.appendChild(txt(sx(xEnd)-2,sy(xEnd*med)-4,"median $"+med.toFixed(1)+"/m²",
+        {anchor:"end",size:7,fill:"var(--ink-3)"}));
+    }
+    pts.forEach(function(r){
+      var good=med!=null&&r.ppm!=null&&r.ppm<med;
+      var c=el("circle",{cx:sx(r.a),cy:sy(r.p),r:2.4,
+        fill:good?"var(--amber)":"var(--blue)","fill-opacity":.6,
+        stroke:"var(--surface)","stroke-width":.5});
+      c.appendChild(el("title",{})).textContent=trieu(r)+" · "+Math.round(r.a)+" m²"+
+        (r.ppm?" · $"+r.ppm.toFixed(1)+"/m²":"")+(r.dist?" · "+shortDist(r.dist):"");
+      svg.appendChild(c);
+    });
+    [0,50,100,150,200].forEach(function(v){
+      svg.appendChild(txt(sx(v),H-B+13,v+(v===200?"+ m²":""),
+        {anchor:v===0?"start":(v===200?"end":"middle"),size:7.5}));
+    });
+  }
+
+  function render(){
+    var rows=ALL.filter(passes).sort(SORTS[state.sort]);
+    var pr=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
+    var ar=rows.map(function(r){return r.a;}).filter(function(v){return v!=null;});
+    var pp=rows.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
+    var mid=median(pr);
+
+    $("tiles").innerHTML="";
+    [["Listings",rows.length.toLocaleString("en-US"),"of "+ALL.length.toLocaleString("en-US")+" in Da Nang"],
+     ["Median rent",mid!=null?(mid*25500/1e6).toFixed(1)+" tr":"—",mid!=null?usd(mid)+" a month":"—"],
+     ["Median size",ar.length?Math.round(median(ar))+" m²":"—",ar.length+" give a size"],
+     ["Median $/m²",pp.length?"$"+median(pp).toFixed(1):"—",pp.length+" with both"]
+    ].forEach(function(t){
+      var d=document.createElement("div");d.className="tile";
+      d.innerHTML='<div class="k"></div><div class="v"></div><div class="sub"></div>';
+      d.querySelector(".k").textContent=t[0];
+      d.querySelector(".v").textContent=t[1];
+      d.querySelector(".sub").textContent=t[2];
+      $("tiles").appendChild(d);
+    });
+
+    histogram(rows);byDistrict(rows);scatter(rows);
+    $("count").textContent=rows.length===ALL.length
+      ? "All "+rows.length.toLocaleString("en-US")+" listings"
+      : rows.length.toLocaleString("en-US")+" of "+ALL.length.toLocaleString("en-US")+" match";
+
+    var host=$("rows");host.innerHTML="";
+    if(!rows.length){
+      var e=document.createElement("div");e.className="empty";
+      e.textContent="Nothing matches. Try raising the budget or clearing the district chips.";
+      host.appendChild(e);$("hint").textContent="";return;
+    }
+    var medPpm=median(pp);
+    rows.slice(0,400).forEach(function(r){
+      var b=document.createElement("button");
+      b.type="button";b.className="row"+(medPpm&&r.ppm!=null&&r.ppm<medPpm?" good":"");
+      b.setAttribute("aria-expanded","false");
+      var spec=[r.bd!=null?(r.bd===0?"room":r.bd+" bed"):null,
+                r.a?Math.round(r.a)+" m²":null,
+                r.kind==="house"?"house":null].filter(Boolean).join(" · ")||"—";
+      b.innerHTML='<span class="price"></span><span class="spec"></span>'+
+                  '<span class="loc"></span><span class="flags"></span><span class="date"></span>';
+      b.querySelector(".price").innerHTML='<span></span><span class="usd"></span>';
+      b.querySelector(".price>span").textContent=trieu(r);
+      b.querySelector(".usd").textContent=(r.p!=null?usd(r.p):"")+
+        (r.ppm?"  ·  $"+r.ppm.toFixed(1)+"/m²":"");
+      b.querySelector(".spec").textContent=spec;
+      b.querySelector(".loc").textContent=[r.loc,shortDist(r.dist)].filter(Boolean).join(" · ")||"—";
+      b.querySelector(".flags").textContent=[r.cx||null,r.sv?"sea view":null,
+        r.fu===1?"furnished":null,r.np?r.np+" photos":null].filter(Boolean).join(" · ");
+      b.querySelector(".date").textContent=r.d.slice(5);
+      b.addEventListener("click",function(){
+        if(b.nextElementSibling&&b.nextElementSibling.className==="detail"){
+          b.nextElementSibling.remove();b.setAttribute("aria-expanded","false");return;}
+        var d=document.createElement("div");d.className="detail";
+        var p=document.createElement("p");p.textContent=r.txt||"(no text)";
+        var m=document.createElement("div");m.className="meta";
+        var a=document.createElement("a");a.href=r.url;a.target="_blank";
+        a.rel="noopener";a.textContent="Open on Chotot ↗";m.appendChild(a);
+        [r.ph,shortDist(r.dist),r.d].filter(Boolean).forEach(function(s){
+          var sp=document.createElement("span");sp.textContent=s;m.appendChild(sp);});
+        d.appendChild(p);d.appendChild(m);b.after(d);b.setAttribute("aria-expanded","true");
+      });
+      host.appendChild(b);
+    });
+    $("hint").textContent=rows.length>400
+      ? "Showing the first 400 — narrow the filters to see the rest"
+      : "Select a row to read the original ad";
+  }
+
+  function syncLabels(){
+    $("maxpv").textContent=state.maxp>=3000?"any":"up to "+usd(state.maxp);
+    $("minav").textContent=state.mina>0?state.mina+" m² or more":"any";
+    $("periodv").textContent=(state.from===DMIN&&state.to===DMAX)
+      ? "anytime, "+DMIN+" to "+DMAX : state.from+" to "+state.to;
+    $("from").value=state.from;$("to").value=state.to;
+  }
+  function markPeriod(chip){
+    Array.prototype.forEach.call($("periods").children,function(c){
+      c.setAttribute("aria-pressed",String(c===chip));});
+  }
+  [["dists","dist"],["kinds","kind"],["beds","bed"]].forEach(function(p){
+    $(p[0]).addEventListener("click",function(e){
+      var b=e.target.closest(".chip");if(!b)return;
+      var on=b.getAttribute("aria-pressed")==="true";
+      b.setAttribute("aria-pressed",String(!on));
+      var bag=p[1]==="dist"?state.dist:(p[1]==="kind"?state.kind:state.beds);
+      bag[b.dataset[p[1]]]=!on;render();
+    });
+  });
+  $("periods").addEventListener("click",function(e){
+    var b=e.target.closest(".chip");if(!b)return;
+    var days=+b.dataset.days;
+    state.from=days?shiftDays(DMAX,days):DMIN;state.to=DMAX;
+    if(state.from<DMIN)state.from=DMIN;
+    markPeriod(b);syncLabels();render();
+  });
+  ["from","to"].forEach(function(id){
+    $(id).addEventListener("change",function(e){
+      state[id]=e.target.value||(id==="from"?DMIN:DMAX);
+      if(state.from>state.to){if(id==="from")state.to=state.from;else state.from=state.to;}
+      markPeriod(null);syncLabels();render();
+    });
+  });
+  ["q","sort"].forEach(function(id){
+    $(id).addEventListener("input",function(e){state[id]=e.target.value;render();});
+  });
+  $("maxp").addEventListener("input",function(e){state.maxp=+e.target.value;syncLabels();render();});
+  $("mina").addEventListener("input",function(e){state.mina=+e.target.value;syncLabels();render();});
+  $("reset").addEventListener("click",function(){
+    state={dist:{},kind:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",from:DMIN,to:DMAX};
+    $("q").value="";$("sort").value="ppm";$("maxp").value=3000;$("mina").value=0;
+    document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
+    markPeriod($("periods").firstElementChild);syncLabels();render();
+  });
+
+  syncLabels();render();
+})();
+</script>

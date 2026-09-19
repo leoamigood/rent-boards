@@ -8,6 +8,7 @@ option for a public chat you don't own.
 from __future__ import annotations
 
 import asyncio
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -16,6 +17,7 @@ from telethon import TelegramClient, errors, events, functions
 from telethon.tl.types import Message
 
 from . import db, parser
+from .sources import chotot
 from .config import Config
 
 BATCH = 200
@@ -72,11 +74,26 @@ def message_row(msg: Message, chat: str) -> dict[str, Any]:
 
 def listing_row(msg_row: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
     text = msg_row.get("text") or ""
-    if not parser.is_listing(text):
+
+    # Sources that already know the price, size and bedroom count keep their
+    # own values; the text parser still runs underneath to pick up what the
+    # structured record does not carry (sea view, furnishing, term, pets).
+    structured: dict[str, Any] = {}
+    if raw := msg_row.get("raw"):
+        try:
+            record = json.loads(raw)
+        except (TypeError, ValueError):
+            record = {}
+        if record.get("_src") == "chotot":
+            structured = chotot.listing_fields(record, cfg.vnd_per_usd)
+
+    if not structured and not parser.is_listing(text):
         return None
+
     fields = parser.parse(text, sender_id=msg_row.get("sender_id"),
                           gel_per_usd=cfg.gel_per_usd, eur_per_usd=cfg.eur_per_usd,
                           vnd_per_usd=cfg.vnd_per_usd)
+    fields.update({k: v for k, v in structured.items() if v is not None})
     fields.update(chat=msg_row["chat"], msg_id=msg_row["msg_id"],
                   date_utc=msg_row["date_utc"], parsed_at=db.now_utc())
     return fields
@@ -201,3 +218,39 @@ def run(coro) -> None:
         asyncio.run(coro)
     except KeyboardInterrupt:
         print("\nStopped.")
+
+
+def fetch_chotot(cfg: Config, region: str, limit: int | None = None) -> None:
+    """Pull rental ads from the Chotot gateway into the same tables."""
+    source = f"chotot:{region}"
+    conn = db.connect(cfg.db_path)
+    known = {r[0] for r in conn.execute(
+        "SELECT msg_id FROM messages WHERE chat=?", (source,))}
+
+    print(f"Fetching rentals for {region} from Chotot"
+          f"{f' (up to {limit})' if limit else ''}...")
+    buffer: list[dict[str, Any]] = []
+    total = listings = fresh = 0
+    try:
+        for ad in chotot.iter_ads(region, limit=limit):
+            row = chotot.message_row(ad, source)
+            row["fetched_at"] = db.now_utc()
+            if row["msg_id"] not in known:
+                fresh += 1
+            buffer.append(row)
+            total += 1
+            if len(buffer) >= BATCH:
+                listings += _flush(conn, buffer, cfg)
+                buffer.clear()
+                print(f"  {total} ads, {listings} listings...", end="\r", flush=True)
+    except KeyboardInterrupt:
+        print("\nstopping early")
+    except Exception as exc:                       # noqa: BLE001 - report and keep what we have
+        print(f"\nStopped after {total} ads: {exc.__class__.__name__}: {exc}")
+    finally:
+        listings += _flush(conn, buffer, cfg)
+
+    print(f"\nStored {total} ads ({fresh} new), {listings} parsed as listings.")
+    db.set_state(conn, f"last_fetch:{source}", db.now_utc())
+    conn.commit()
+    conn.close()

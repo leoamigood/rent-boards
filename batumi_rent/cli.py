@@ -64,7 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("login", help="one-time Telegram sign-in (asks for the code)")
     sub.add_parser("join", help="join the chat with the logged-in account")
 
-    f = sub.add_parser("fetch", help="download messages (new ones by default)")
+    f = sub.add_parser("fetch", help="download listings (new ones by default)")
+    f.add_argument("--source", choices=["telegram", "chotot"], default="telegram",
+                   help="where to fetch from (default: telegram)")
+    f.add_argument("--region", default="danang",
+                   help="for --source chotot: danang, hanoi, hcmc, nhatrang")
     f.add_argument("--limit", type=int, help="stop after N messages")
     f.add_argument("--older", action="store_true",
                    help="continue backwards into older history instead of fetching new")
@@ -128,8 +132,11 @@ def main(argv: list[str] | None = None) -> int:
             collect.run(_join())
 
         case "fetch":
-            collect.run(collect.fetch(cfg, limit=args.limit, older=args.older,
-                                      since_days=args.days))
+            if args.source == "chotot":
+                collect.fetch_chotot(cfg, args.region, limit=args.limit)
+            else:
+                collect.run(collect.fetch(cfg, limit=args.limit, older=args.older,
+                                          since_days=args.days))
 
         case "watch":
             collect.run(collect.watch(cfg))
