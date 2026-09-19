@@ -139,7 +139,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     <p class="eyebrow" id="provenance">loading…</p>
     <h1>Da Nang Rent Board</h1>
     <p class="standfirst">Every apartment, house and room listed for rent in Da Nang
-      on Chotot, ranked by value per square metre. Prices are shown in US dollars,
+      on Chotot and mogi.vn, ranked by value per square metre. Prices are shown in US dollars,
       converted from the dong figure on the ad, which is kept alongside.</p>
   </header>
 
@@ -152,6 +152,10 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       <div class="field">
         <span class="lbl">Property</span>
         <div class="chips" id="kinds"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Source</span>
+        <div class="chips" id="srcs"></div>
       </div>
       <div class="field">
         <span class="lbl">Bedrooms</span>
@@ -212,7 +216,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   <section class="maprow">
     <figure>
       <figcaption>Where the listings are</figcaption>
-      <p class="cap">Each dot is one flat, placed by the ad's own coordinates</p>
+      <p class="cap" id="mapcap">Each dot is one flat, placed by the ad's own coordinates</p>
       <div id="mapbox"><svg id="map" viewBox="0 0 560 480"
            preserveAspectRatio="xMidYMid meet" role="img"
            aria-label="Map of rental listings across Da Nang"></svg></div>
@@ -287,8 +291,12 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     return (r.p!=null?usd(r.p):"—")+(d?" ("+d+")":"");
   };
   var KINDS=[["apartment","Apartment"],["house","House"],["room","Room"]];
+  var SRCS=[["chotot","Chotot"],["mogi","Mogi"]];
 
-  $("provenance").textContent="chotot.com · Da Nang · "+
+  var srcNames=(META.sources||[]).map(function(s){
+    return {chotot:"chotot.com",mogi:"mogi.vn"}[s.split(":")[0]]||s.split(":")[0];});
+  srcNames=srcNames.filter(function(v,i,a){return a.indexOf(v)===i;});
+  $("provenance").textContent=(srcNames.join(" + ")||"—")+" · Da Nang · "+
     ALL.length.toLocaleString("en-US")+" distinct listings · "+(META.from||"")+" to "+(META.to||"");
   $("built").textContent="Built "+(META.built||"")+" from "+
     (META.posts||0).toLocaleString("en-US")+" ads.";
@@ -298,7 +306,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   function shiftDays(iso,n){var d=new Date(iso+"T00:00:00Z");
     d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
 
-  var state={dist:{},kind:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",from:DMIN,to:DMAX};
+  var state={dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",
+             from:DMIN,to:DMAX};
   ["from","to"].forEach(function(id){var i=$(id);i.min=DMIN;i.max=DMAX;i.value=state[id];});
 
   var counts={};
@@ -319,6 +328,15 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     b.firstChild.textContent=p[1];b.lastChild.textContent=n;
     $("kinds").appendChild(b);
   });
+  SRCS.forEach(function(p){
+    var n=ALL.filter(function(r){return r.src===p[0];}).length;
+    if(!n)return;
+    var b=document.createElement("button");
+    b.type="button";b.className="chip";b.setAttribute("aria-pressed","false");
+    b.dataset.src=p[0];b.innerHTML='<span></span><span class="n"></span>';
+    b.firstChild.textContent=p[1];b.lastChild.textContent=n;
+    $("srcs").appendChild(b);
+  });
   [[0,"studio / room"],[1,"1 bed"],[2,"2 beds"],[3,"3 beds"],[4,"4+ beds"]].forEach(function(p){
     var b=document.createElement("button");
     b.type="button";b.className="chip";b.setAttribute("aria-pressed","false");
@@ -334,6 +352,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     if(ds.length&&ds.indexOf(r.dist)<0) return false;
     var ks=Object.keys(state.kind).filter(function(k){return state.kind[k];});
     if(ks.length&&ks.indexOf(r.kind)<0) return false;
+    var ss=Object.keys(state.src).filter(function(k){return state.src[k];});
+    if(ss.length&&ss.indexOf(r.src)<0) return false;
     var bs=Object.keys(state.beds).filter(function(k){return state.beds[k];});
     if(bs.length){
       if(r.bd==null) return false;
@@ -671,6 +691,11 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     histogram(rows);byDistrict(rows);scatter(rows);
     if(lmap) drawLeaflet(rows); else drawMap(rows);
     drawKey(rows);
+    var mapped=rows.filter(function(r){return r.lat&&r.lon;}).length;
+    $("mapcap").textContent=mapped===rows.length
+      ? "Each dot is one flat, placed by the ad's own coordinates"
+      : mapped.toLocaleString("en-US")+" of "+rows.length.toLocaleString("en-US")+
+        " are mapped — mogi listings carry no coordinates";
     $("count").textContent=rows.length===ALL.length
       ? "All "+rows.length.toLocaleString("en-US")+" listings"
       : rows.length.toLocaleString("en-US")+" of "+ALL.length.toLocaleString("en-US")+" match";
@@ -699,7 +724,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       b.querySelector(".spec").textContent=spec;
       b.querySelector(".loc").textContent=[r.loc,shortDist(r.dist)].filter(Boolean).join(" · ")||"—";
       b.querySelector(".flags").textContent=[r.cx||null,r.sv?"sea view":null,
-        r.fu===1?"furnished":null,r.np?r.np+" photos":null].filter(Boolean).join(" · ");
+        r.fu===1?"furnished":null,r.np?r.np+" photos":null,
+        r.src==="mogi"?"mogi":null].filter(Boolean).join(" · ");
       b.querySelector(".date").textContent=r.d.slice(5);
       b.addEventListener("click",function(){
         if(b.nextElementSibling&&b.nextElementSibling.className==="detail"){
@@ -738,12 +764,13 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     Array.prototype.forEach.call($("periods").children,function(c){
       c.setAttribute("aria-pressed",String(c===chip));});
   }
-  [["dists","dist"],["kinds","kind"],["beds","bed"]].forEach(function(p){
+  [["dists","dist"],["kinds","kind"],["srcs","src"],["beds","bed"]].forEach(function(p){
     $(p[0]).addEventListener("click",function(e){
       var b=e.target.closest(".chip");if(!b)return;
       var on=b.getAttribute("aria-pressed")==="true";
       b.setAttribute("aria-pressed",String(!on));
-      var bag=p[1]==="dist"?state.dist:(p[1]==="kind"?state.kind:state.beds);
+      var bag=p[1]==="dist"?state.dist:(p[1]==="kind"?state.kind:
+              (p[1]==="src"?state.src:state.beds));
       bag[b.dataset[p[1]]]=!on;render();
     });
   });
@@ -767,7 +794,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("maxp").addEventListener("input",function(e){state.maxp=+e.target.value;syncLabels();render();});
   $("mina").addEventListener("input",function(e){state.mina=+e.target.value;syncLabels();render();});
   $("reset").addEventListener("click",function(){
-    state={dist:{},kind:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",from:DMIN,to:DMAX};
+    state={dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",
+           from:DMIN,to:DMAX};
     $("q").value="";$("sort").value="ppm";$("maxp").value=3000;$("mina").value=0;
     document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
     markPeriod($("periods").firstElementChild);syncLabels();render();

@@ -17,7 +17,7 @@ from telethon import TelegramClient, errors, events, functions
 from telethon.tl.types import Message
 
 from . import db, parser
-from .sources import chotot
+from .sources import chotot, mogi
 from .config import Config
 
 BATCH = 200
@@ -86,6 +86,8 @@ def listing_row(msg_row: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
             record = {}
         if record.get("_src") == "chotot":
             structured = chotot.listing_fields(record, cfg.vnd_per_usd)
+        elif record.get("_src") == "mogi":
+            structured = mogi.listing_fields(record, cfg.vnd_per_usd)
 
     if not structured and not parser.is_listing(text):
         return None
@@ -251,6 +253,43 @@ def fetch_chotot(cfg: Config, region: str, limit: int | None = None) -> None:
         listings += _flush(conn, buffer, cfg)
 
     print(f"\nStored {total} ads ({fresh} new), {listings} parsed as listings.")
+    db.set_state(conn, f"last_fetch:{source}", db.now_utc())
+    conn.commit()
+    conn.close()
+
+
+def fetch_mogi(cfg: Config, region: str, limit: int | None = None) -> None:
+    """Pull rental listings from mogi.vn's public listing pages."""
+    source = f"mogi:{region}"
+    conn = db.connect(cfg.db_path)
+    known = {r[0] for r in conn.execute(
+        "SELECT msg_id FROM messages WHERE chat=?", (source,))}
+
+    print(f"Fetching rentals for {region} from mogi.vn"
+          f"{f' (up to {limit})' if limit else ''}...")
+    buffer: list[dict[str, Any]] = []
+    total = listings = fresh = 0
+    try:
+        for item in mogi.iter_listings(region, limit=limit):
+            row = mogi.message_row(item, source)
+            row["raw"] = json.dumps(item, ensure_ascii=False)
+            row["fetched_at"] = db.now_utc()
+            if row["msg_id"] not in known:
+                fresh += 1
+            buffer.append(row)
+            total += 1
+            if len(buffer) >= BATCH:
+                listings += _flush(conn, buffer, cfg)
+                buffer.clear()
+                print(f"  {total} listings...", end="\r", flush=True)
+    except KeyboardInterrupt:
+        print("\nstopping early")
+    except Exception as exc:                       # noqa: BLE001
+        print(f"\nStopped after {total}: {exc.__class__.__name__}: {exc}")
+    finally:
+        listings += _flush(conn, buffer, cfg)
+
+    print(f"\nStored {total} listings ({fresh} new), {listings} parsed.")
     db.set_state(conn, f"last_fetch:{source}", db.now_utc())
     conn.commit()
     conn.close()

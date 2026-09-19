@@ -78,6 +78,7 @@ def main() -> int:
             text = scrub(text)
         out.append({
             "id": r["msg_id"],
+            "src": (r["chat"] or "").split(":")[0],
             "deal": r["deal_type"],
             "d": r["date_utc"][:10],
             "p": r["price_usd"],
@@ -115,6 +116,8 @@ def main() -> int:
     meta = {
         "chat": cfg.chat,
         "deals": deals,
+        "sources": [r[0] for r in conn.execute(
+            "SELECT DISTINCT chat FROM listings ORDER BY chat")],
         "messages": conn.execute("SELECT COUNT(*) n FROM messages").fetchone()["n"],
         "posts": conn.execute(
             "SELECT COUNT(*) n FROM listings WHERE deal_type='rent_offer'").fetchone()["n"],
