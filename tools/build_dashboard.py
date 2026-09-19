@@ -42,12 +42,23 @@ def main() -> int:
                     help="directory to write data.js into (default: dashboard)")
     ap.add_argument("--strip-contacts", action="store_true",
                     help="omit phone numbers and @handles from the output")
+    ap.add_argument("--chat", help="override TG_CHAT")
+    ap.add_argument("--db", help="override DB_PATH")
+    ap.add_argument("--split-cities", action="store_true",
+                    help="dedupe per city (use for chats covering several)")
+    ap.add_argument("--with-wanted", action="store_true",
+                    help="also export the 'wanted' posts, where people say what "
+                         "they are looking for and what they will pay")
     args = ap.parse_args()
 
-    cfg = config.load()
+    cfg = config.load(chat_override=args.chat, db_override=args.db)
     conn = db.connect(cfg.db_path)
-    rows = analyze.query(conn, analyze.Filters(deal="rent_offer"),
-                         sort="date", limit=1_000_000)
+    deals = ["rent_offer"] + (["rent_seek"] if args.with_wanted else [])
+    rows = []
+    for deal in deals:
+        rows += analyze.query(conn, analyze.Filters(deal=deal,
+                                                    split_by_city=args.split_cities),
+                              sort="date", limit=1_000_000)
 
     out = []
     for r in rows:
@@ -56,8 +67,13 @@ def main() -> int:
             text = scrub(text)
         out.append({
             "id": r["msg_id"],
+            "deal": r["deal_type"],
             "d": r["date_utc"][:10],
             "p": r["price_usd"],
+            "raw": r["price"],
+            "cur": r["currency"],
+            "city": r["city"],
+            "bd": r["bedrooms"],
             "a": r["area_sqm"],
             "r": r["rooms"],
             "lay": r["layout"],
@@ -83,6 +99,7 @@ def main() -> int:
     span = conn.execute("SELECT MIN(date_utc) a, MAX(date_utc) b FROM messages").fetchone()
     meta = {
         "chat": cfg.chat,
+        "deals": deals,
         "messages": conn.execute("SELECT COUNT(*) n FROM messages").fetchone()["n"],
         "posts": conn.execute(
             "SELECT COUNT(*) n FROM listings WHERE deal_type='rent_offer'").fetchone()["n"],
