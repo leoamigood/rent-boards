@@ -1,0 +1,580 @@
+<title>Vietnam Rent Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#F1EFE9; --surface:#FBFAF7; --surface-2:#F5F3EC;
+  --ink:#1A1C24; --ink-2:#4E5160; --ink-3:#787C8C;
+  --line:#DFDBD1; --line-strong:#C9C4B7; --chip:#E8E5DC;
+  --indigo:#3F53A8; --indigo-ink:#33448C; --gold:#9A7211; --gold-ink:#7C5B0B;
+  --sans:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --display:"Newsreader",Georgia,serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme: dark;
+  --ground:#0F1118; --surface:#171A24; --surface-2:#1E2230;
+  --ink:#E9EAF1; --ink-2:#A9ADBE; --ink-3:#7E8296;
+  --line:#272C3A; --line-strong:#394054; --chip:#212636;
+  --indigo:#7285D2; --indigo-ink:#93A3E2; --gold:#B08721; --gold-ink:#CCA13A;
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#0F1118; --surface:#171A24; --surface-2:#1E2230;
+  --ink:#E9EAF1; --ink-2:#A9ADBE; --ink-3:#7E8296;
+  --line:#272C3A; --line-strong:#394054; --chip:#212636;
+  --indigo:#7285D2; --indigo-ink:#93A3E2; --gold:#B08721; --gold-ink:#CCA13A;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+     font-size:14px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:20px;padding-block:26px 56px}
+h1,h2{text-wrap:balance;margin:0}
+a{color:var(--indigo-ink)}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:3px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--ink-3);margin:0 0 9px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(30px,5vw,44px);
+   line-height:1.03;letter-spacing:-.01em}
+.standfirst{color:var(--ink-2);margin:10px 0 0;max-width:64ch}
+.masthead{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:18px}
+
+/* the defining control of this board: which side of the market */
+.sides{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--line-strong);
+       border-radius:6px;overflow:hidden;width:fit-content;max-width:100%}
+.side{font:inherit;font-size:13px;font-weight:500;background:var(--surface);
+      color:var(--ink-2);border:none;padding:9px 18px;cursor:pointer;white-space:nowrap}
+.side + .side{border-left:1px solid var(--line-strong)}
+.side[aria-pressed="true"]{background:var(--indigo);color:#fff}
+.side .n{font-family:var(--mono);font-size:11px;opacity:.75;margin-left:6px}
+
+.filters{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+         padding:15px 17px;display:grid;gap:15px;margin-bottom:18px}
+.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+label,.lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+           text-transform:uppercase;color:var(--ink-3)}
+input[type=search],input[type=date],select{font:inherit;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--line-strong);border-radius:4px;
+  padding:7px 9px;width:100%;font-variant-numeric:tabular-nums}
+input[type=date]{font-family:var(--mono);font-size:12.5px}
+input[type=range]{width:100%;accent-color:var(--indigo)}
+.rangeval{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;background:var(--chip);color:var(--ink-2);
+  border:1px solid transparent;border-radius:999px;padding:4px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--indigo);color:#fff;border-color:var(--indigo)}
+.chip:hover{border-color:var(--indigo)}
+.chip .n{font-family:var(--mono);font-size:10.5px;opacity:.7;margin-left:4px}
+.reset{background:none;border:1px solid var(--line-strong);border-radius:4px;
+  padding:7px 12px;font:inherit;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.reset:hover{border-color:var(--indigo);color:var(--indigo-ink)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));
+       gap:1px;background:var(--line);border:1px solid var(--line);
+       border-radius:6px;overflow:hidden;margin-bottom:18px}
+.tile{background:var(--surface);padding:13px 15px}
+.tile .k{font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--ink-3)}
+.tile .v{font-family:var(--mono);font-variant-numeric:tabular-nums;
+         font-size:25px;font-weight:500;line-height:1.15;margin-top:3px}
+.tile .sub{font-size:12px;color:var(--ink-3);margin-top:1px}
+
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+        gap:13px;margin-bottom:24px}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);
+       border-radius:6px;padding:13px 15px 9px}
+figcaption{font-size:13px;font-weight:600;margin-bottom:2px}
+.cap{font-size:12px;color:var(--ink-3);margin-bottom:8px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.legend-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.lg{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-2)}
+.dot{width:8px;height:8px;border-radius:2px;flex:none}
+
+.resulthead{display:flex;justify-content:space-between;align-items:baseline;
+            gap:12px;flex-wrap:wrap;margin-bottom:10px}
+h2{font-family:var(--display);font-weight:600;font-size:20px}
+.rows{display:flex;flex-direction:column;gap:1px;background:var(--line);
+      border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.row{background:var(--surface);display:grid;gap:3px 14px;padding:11px 15px;
+     grid-template-columns:120px 118px 1fr auto auto;align-items:baseline;
+     cursor:pointer;border:none;text-align:left;font:inherit;color:inherit;width:100%}
+.row:hover{background:var(--surface-2)}
+.row .price{font-family:var(--mono);font-variant-numeric:tabular-nums;
+            font-size:15px;font-weight:700}
+.row .usd{font-family:var(--mono);font-size:11px;color:var(--ink-3);display:block;
+          font-weight:400}
+.row .spec{font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.row .loc{font-size:13px;min-width:0;overflow-wrap:anywhere}
+.row .flags{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.row .date{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.seek .price{color:var(--gold-ink)}
+.detail{background:var(--surface-2);padding:14px 16px;border-top:1px dashed var(--line-strong)}
+.detail p{margin:0 0 10px;white-space:pre-wrap;font-size:13px;color:var(--ink-2);
+          max-width:72ch;overflow-wrap:anywhere}
+.detail .meta{font-family:var(--mono);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+       padding:32px;text-align:center;color:var(--ink-2)}
+footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
+       font-size:12px;color:var(--ink-3);display:flex;gap:18px;flex-wrap:wrap}
+@media (max-width:640px){
+  .row{grid-template-columns:118px 1fr;grid-template-areas:"price spec" "price loc" "price flags"}
+  .row .price{grid-area:price}.row .spec{grid-area:spec}
+  .row .loc{grid-area:loc}.row .flags{grid-area:flags}.row .date{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow" id="provenance">loading…</p>
+    <h1>Vietnam Rent Board</h1>
+    <p class="standfirst">Flats offered across Vietnamese cities, and what people
+      looking for one say they will pay. Rent is shown in US dollars so every figure is comparable, converted from the millions of dong the ads are written in, which stays alongside.</p>
+  </header>
+
+  <div class="sides" id="sides" role="group" aria-label="Which side of the market">
+    <button class="side" type="button" data-deal="rent_offer" aria-pressed="true">Offered<span class="n" id="n-offer"></span></button>
+    <button class="side" type="button" data-deal="rent_seek" aria-pressed="false">Wanted<span class="n" id="n-seek"></span></button>
+  </div>
+
+  <section class="filters" aria-label="Filters">
+    <div class="frow" style="grid-template-columns:1fr">
+      <div class="field">
+        <span class="lbl">City</span>
+        <div class="chips" id="cities"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Bedrooms</span>
+        <div class="chips" id="beds"></div>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="field">
+        <label for="maxp">Budget ceiling — <span class="rangeval" id="maxpv"></span></label>
+        <input type="range" id="maxp" min="100" max="1500" step="25" value="1500">
+      </div>
+      <div class="field">
+        <label for="q">Search text</label>
+        <input type="search" id="q" placeholder="бассейн, Мыонг Тхань, пет френдли…">
+      </div>
+      <div class="field">
+        <label for="sort">Sort by</label>
+        <select id="sort">
+          <option value="price">Cheapest first</option>
+          <option value="pricedesc">Most expensive first</option>
+          <option value="date">Most recent</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="reset">&nbsp;</label>
+        <button class="reset" id="reset" type="button">Clear all filters</button>
+      </div>
+    </div>
+    <div class="frow">
+      <div class="field" style="grid-column:1/-1">
+        <span class="lbl">Period — <span class="rangeval" id="periodv"></span></span>
+        <div class="chips" id="periods">
+          <button class="chip" type="button" data-days="0" aria-pressed="true">Everything</button>
+          <button class="chip" type="button" data-days="30" aria-pressed="false">Last 30 days</button>
+          <button class="chip" type="button" data-days="90" aria-pressed="false">3 months</button>
+          <button class="chip" type="button" data-days="180" aria-pressed="false">6 months</button>
+          <button class="chip" type="button" data-days="365" aria-pressed="false">12 months</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="from">From</label>
+        <input type="date" id="from">
+      </div>
+      <div class="field">
+        <label for="to">To</label>
+        <input type="date" id="to">
+      </div>
+    </div>
+  </section>
+
+  <section class="tiles" id="tiles" aria-label="Summary of the current selection"></section>
+
+  <section class="charts">
+    <figure>
+      <figcaption id="c1title">What rent costs</figcaption>
+      <p class="cap" id="c1cap">Listings per price band</p>
+      <svg id="c1" viewBox="0 0 340 180" role="img" aria-label="Distribution of monthly rent"></svg>
+    </figure>
+    <figure>
+      <figcaption>Rent through the year</figcaption>
+      <p class="cap">Median by month — the archive runs 14 months</p>
+      <svg id="c2" viewBox="0 0 340 180" role="img" aria-label="Median monthly rent over time"></svg>
+    </figure>
+    <figure>
+      <figcaption>Who is looking, and where</figcaption>
+      <p class="cap">Posts per city, both sides of the market</p>
+      <svg id="c3" viewBox="0 0 340 180" role="img" aria-label="Offers and wanted posts per city"></svg>
+      <div class="legend-row">
+        <span class="lg"><span class="dot" style="background:var(--indigo)"></span>flats offered</span>
+        <span class="lg"><span class="dot" style="background:var(--gold)"></span>people looking</span>
+      </div>
+    </figure>
+  </section>
+
+  <div class="resulthead">
+    <h2 id="count">Listings</h2>
+    <p class="rangeval" id="hint">Select a row to read the original post</p>
+  </div>
+  <div class="rows" id="rows"></div>
+
+  <footer>
+    <span id="built"></span>
+    <span id="fx">Dong converted at 25,500 to the dollar.</span>
+    <span>Figures come from the ads themselves and are not verified.</span>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+  "use strict";
+  var ALL=(window.LISTINGS||[]), META=(window.META||{});
+  var $=function(id){return document.getElementById(id);};
+  var usd=function(v){return v==null?"—":"$"+Math.round(v).toLocaleString("en-US");};
+  var median=function(a){if(!a.length)return null;var s=a.slice().sort(function(x,y){return x-y;});
+    var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+  var CITIES=["Da Nang","Nha Trang","Phu Quoc","Ho Chi Minh","Da Lat","Vung Tau","Hanoi","Hoi An"];
+
+  // Dollars lead so every figure on the board is comparable; the dong number
+  // the ad was written in stays alongside, since that is what gets negotiated.
+  function dong(r){
+    if(r.cur==="VND" && r.raw) return (r.raw/1e6).toFixed(1).replace(/\.0$/,"")+" млн";
+    return "";
+  }
+
+  $("provenance").textContent="t.me/"+(META.chat||"")+" · "+
+    (META.messages||0).toLocaleString("en-US")+" messages read · "+
+    (META.from||"")+" to "+(META.to||"");
+  $("built").textContent="Built "+(META.built||"")+".";
+  $("n-offer").textContent=ALL.filter(function(r){return r.deal==="rent_offer";}).length;
+  $("n-seek").textContent=ALL.filter(function(r){return r.deal==="rent_seek";}).length;
+
+  // Presets count back from the newest post in the archive, not from today —
+  // the data is a snapshot, and "last 30 days" of a file built in September
+  // must not go empty just because it is read in December.
+  var dates=ALL.map(function(r){return r.d;}).filter(Boolean).sort();
+  var DMIN=dates[0]||"", DMAX=dates[dates.length-1]||"";
+  function shiftDays(iso,n){
+    var d=new Date(iso+"T00:00:00Z");
+    d.setUTCDate(d.getUTCDate()-n);
+    return d.toISOString().slice(0,10);
+  }
+
+  var state={deal:"rent_offer",city:{},beds:{},maxp:1500,q:"",sort:"price",
+             from:DMIN,to:DMAX};
+
+  ["from","to"].forEach(function(id){
+    var i=$(id); i.min=DMIN; i.max=DMAX; i.value=state[id];
+  });
+
+  var cityBox=$("cities");
+  CITIES.forEach(function(c){
+    var n=ALL.filter(function(r){return r.city===c;}).length;
+    if(n<5) return;
+    var b=document.createElement("button");
+    b.type="button"; b.className="chip"; b.setAttribute("aria-pressed","false");
+    b.dataset.city=c; b.innerHTML='<span></span><span class="n"></span>';
+    b.firstChild.textContent=c; b.lastChild.textContent=n;
+    cityBox.appendChild(b);
+  });
+  var bedBox=$("beds");
+  [[0,"studio"],[1,"1 bed"],[2,"2 beds"],[3,"3+ beds"]].forEach(function(p){
+    var b=document.createElement("button");
+    b.type="button"; b.className="chip"; b.setAttribute("aria-pressed","false");
+    b.dataset.bed=p[0]; b.textContent=p[1];
+    bedBox.appendChild(b);
+  });
+
+  function passes(r){
+    if(r.deal!==state.deal) return false;
+    if(state.from && r.d<state.from) return false;
+    if(state.to && r.d>state.to) return false;
+    if(state.maxp<1500 && !(r.p!=null && r.p<=state.maxp)) return false;
+    var cs=Object.keys(state.city).filter(function(k){return state.city[k];});
+    if(cs.length && cs.indexOf(r.city)<0) return false;
+    var bs=Object.keys(state.beds).filter(function(k){return state.beds[k];});
+    if(bs.length){
+      if(r.bd==null) return false;
+      var v=r.bd>=3?"3":String(r.bd);
+      if(bs.indexOf(v)<0) return false;
+    }
+    if(state.q){
+      var hay=((r.txt||"")+" "+(r.city||"")+" "+(r.loc||"")).toLowerCase();
+      if(hay.indexOf(state.q.toLowerCase())<0) return false;
+    }
+    return true;
+  }
+  var SORTS={
+    price:function(a,b){return (a.p==null)-(b.p==null)||a.p-b.p;},
+    pricedesc:function(a,b){return (a.p==null)-(b.p==null)||b.p-a.p;},
+    date:function(a,b){return a.d<b.d?1:a.d>b.d?-1:0;}
+  };
+
+  var NS="http://www.w3.org/2000/svg";
+  function el(t,a){var n=document.createElementNS(NS,t);for(var k in a)n.setAttribute(k,a[k]);return n;}
+  function txt(x,y,s,o){o=o||{};var t=el("text",{x:x,y:y,
+    "font-family":"JetBrains Mono, monospace","font-size":o.size||8,
+    fill:o.fill||"var(--ink-3)","text-anchor":o.anchor||"start",
+    "font-variant-numeric":"tabular-nums"});t.textContent=s;return t;}
+  function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
+
+  function histogram(rows){
+    var svg=$("c1");clear(svg);
+    var W=340,H=180,L=30,R=8,T=10,B=26;
+    var pr=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
+    if(!pr.length){svg.appendChild(txt(W/2,H/2,"No priced posts",{anchor:"middle",size:9}));return;}
+    var STEP=100,MAX=1500,bins=new Array(MAX/STEP+1).fill(0);
+    pr.forEach(function(p){bins[Math.min(Math.floor(p/STEP),MAX/STEP)]++;});
+    var peak=Math.max.apply(null,bins),bw=(W-L-R)/bins.length;
+    [0,0.5,1].forEach(function(f){
+      var y=T+(H-T-B)*(1-f);
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));
+      svg.appendChild(txt(L-5,y+3,Math.round(peak*f),{anchor:"end",size:7.5}));
+    });
+    var fill=state.deal==="rent_offer"?"var(--indigo)":"var(--gold)";
+    bins.forEach(function(n,i){
+      if(!n)return;
+      var h=(H-T-B)*(n/peak),x=L+i*bw+1,y=H-B-h;
+      svg.appendChild(el("rect",{x:x,y:y,width:Math.max(bw-2,1),height:h,rx:2,fill:fill}));
+      var g=el("rect",{x:x-1,y:T,width:bw,height:H-T-B,fill:"transparent"});
+      g.appendChild(el("title",{})).textContent="$"+(i*STEP)+
+        (i===bins.length-1?"+":"–$"+((i+1)*STEP-1))+" · "+n+" posts";
+      svg.appendChild(g);
+    });
+    [0,500,1000,1500].forEach(function(v){
+      var lab="$"+(v>=1000?(v/1000)+"k":v)+(v===MAX?"+":"");
+      svg.appendChild(txt(L+(v/STEP)*bw,H-B+13,lab,
+        {anchor:v===0?"start":(v===MAX?"end":"middle"),size:7.5}));
+    });
+  }
+
+  function byMonth(rows){
+    var svg=$("c2");clear(svg);
+    var W=340,H=180,L=34,R=10,T=12,B=28;
+    var g={};
+    rows.forEach(function(r){if(r.p!=null)(g[r.d.slice(0,7)]=g[r.d.slice(0,7)]||[]).push(r.p);});
+    var ms=Object.keys(g).sort().filter(function(m){return g[m].length>=6;});
+    if(ms.length<3){
+      svg.appendChild(txt(W/2,H/2-4,"Not enough months to show a trend",
+        {anchor:"middle",size:9,fill:"var(--ink-2)"}));
+      svg.appendChild(txt(W/2,H/2+9,"Widen the period above",{anchor:"middle",size:8}));
+      return;
+    }
+    var pts=ms.map(function(m){return {m:m,v:median(g[m]),n:g[m].length};});
+    var top=Math.max.apply(null,pts.map(function(p){return p.v;}))*1.15;
+    var sx=function(i){return L+(W-L-R)*(ms.length===1?0:i/(ms.length-1));};
+    var sy=function(v){return H-B-(H-T-B)*(v/top);};
+    [0,0.5,1].forEach(function(f){
+      var y=T+(H-T-B)*(1-f);
+      svg.appendChild(el("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));
+      svg.appendChild(txt(L-5,y+3,f===0?"$0":usd(top*f),{anchor:"end",size:7.5}));
+    });
+    var stroke=state.deal==="rent_offer"?"var(--indigo)":"var(--gold)";
+    var d=pts.map(function(p,i){return (i?"L":"M")+sx(i).toFixed(1)+" "+sy(p.v).toFixed(1);}).join(" ");
+    svg.appendChild(el("path",{d:d,fill:"none",stroke:stroke,"stroke-width":2,
+      "stroke-linejoin":"round","stroke-linecap":"round"}));
+    pts.forEach(function(p,i){
+      var c=el("circle",{cx:sx(i),cy:sy(p.v),r:i===pts.length-1?4:2.6,fill:stroke,
+        stroke:"var(--surface)","stroke-width":1.2});
+      c.appendChild(el("title",{})).textContent=p.m+" · median "+usd(p.v)+" · "+p.n+" posts";
+      svg.appendChild(c);
+    });
+    var last=pts[pts.length-1];
+    svg.appendChild(txt(sx(pts.length-1)-3,sy(last.v)-8,usd(last.v),
+      {anchor:"end",size:8,fill:"var(--ink)"}));
+    [0,Math.floor((ms.length-1)/2),ms.length-1].forEach(function(i,k){
+      svg.appendChild(txt(sx(i),H-B+13,ms[i],
+        {anchor:k===0?"start":(k===2?"end":"middle"),size:7}));
+    });
+  }
+
+  function byCity(rows){
+    var svg=$("c3");clear(svg);
+    var W=340,H=180,L=56,R=26,T=10,B=20;
+    // Deliberately ignores the Offered/Wanted toggle — showing both sides at
+    // once is the point — but it honours the period, or the date filter would
+    // move three charts and leave this one contradicting them.
+    var span=ALL.filter(function(r){
+      return (!state.from||r.d>=state.from)&&(!state.to||r.d<=state.to);});
+    var cs=CITIES.map(function(c){
+      return {c:c,
+        o:span.filter(function(r){return r.city===c&&r.deal==="rent_offer";}).length,
+        s:span.filter(function(r){return r.city===c&&r.deal==="rent_seek";}).length};
+    }).filter(function(x){return x.o+x.s>=Math.max(4,span.length/80);});
+    if(!cs.length)return;
+    cs.sort(function(a,b){return (b.o+b.s)-(a.o+a.s);});
+    var max=Math.max.apply(null,cs.map(function(x){return Math.max(x.o,x.s);}));
+    var band=(H-T-B)/cs.length,bh=Math.min((band-6)/2,9);
+    cs.forEach(function(x,i){
+      var y=T+i*band;
+      svg.appendChild(txt(L-6,y+band/2,x.c,{anchor:"end",size:8,fill:"var(--ink-2)"}));
+      [["o","var(--indigo)",0],["s","var(--gold)",bh+2]].forEach(function(p){
+        var w=(W-L-R)*(x[p[0]]/max);
+        var bar=el("rect",{x:L,y:y+(band-2*bh-2)/2+p[2],width:Math.max(w,1.5),
+          height:bh,rx:2,fill:p[1]});
+        bar.appendChild(el("title",{})).textContent=x.c+" · "+x[p[0]]+
+          (p[0]==="o"?" offered":" looking");
+        svg.appendChild(bar);
+        svg.appendChild(txt(L+w+4,y+(band-2*bh-2)/2+p[2]+bh-1.5,x[p[0]],
+          {size:7,fill:"var(--ink-3)"}));
+      });
+    });
+    svg.appendChild(el("line",{x1:L,x2:L,y1:T,y2:H-B,stroke:"var(--line-strong)","stroke-width":1}));
+  }
+
+  function render(){
+    var rows=ALL.filter(passes).sort(SORTS[state.sort]);
+    var offer=state.deal==="rent_offer";
+    var pr=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
+    var beds=rows.map(function(r){return r.bd;}).filter(function(v){return v!=null;});
+    var mid=median(pr);
+    var midDong=mid!=null?(mid*25500/1e6).toFixed(1)+" млн a month":"—";
+
+    $("c1title").textContent=offer?"What rent costs":"What people will pay";
+    $("c1cap").textContent=offer?"Flats per price band":"Budgets per price band";
+
+    $("tiles").innerHTML="";
+    [[offer?"Flats offered":"People looking", rows.length.toLocaleString("en-US"),
+      pr.length+" with a price"],
+     [offer?"Median rent":"Median budget", mid!=null?usd(mid):"—", midDong],
+     ["Typical size", beds.length?(median(beds)===0?"studio":median(beds)+" bed"):"—",
+      beds.length+" say"],
+     ["Cheapest quarter", pr.length?usd(pr.slice().sort(function(a,b){return a-b;})[Math.floor(pr.length/4)]):"—",
+      "25th percentile"]
+    ].forEach(function(t){
+      var d=document.createElement("div");d.className="tile";
+      d.innerHTML='<div class="k"></div><div class="v"></div><div class="sub"></div>';
+      d.querySelector(".k").textContent=t[0];
+      d.querySelector(".v").textContent=t[1];
+      d.querySelector(".sub").textContent=t[2];
+      $("tiles").appendChild(d);
+    });
+
+    histogram(rows);byMonth(rows);byCity(rows);
+
+    $("count").textContent=offer
+      ? rows.length+" flat"+(rows.length===1?"":"s")+" offered"
+      : rows.length+" looking";
+
+    var host=$("rows");host.innerHTML="";
+    if(!rows.length){
+      var e=document.createElement("div");e.className="empty";
+      e.textContent="Nothing matches. Try raising the budget or clearing the city chips.";
+      host.appendChild(e);$("hint").textContent="";return;
+    }
+    rows.slice(0,400).forEach(function(r){
+      var b=document.createElement("button");
+      b.type="button";b.className="row"+(offer?"":" seek");
+      b.setAttribute("aria-expanded","false");
+      var spec=[r.bd!=null?(r.bd===0?"studio":r.bd+" bed"):(r.lay||null),
+                r.a?Math.round(r.a)+" m²":null,
+                r.fl?("floor "+r.fl):null].filter(Boolean).join(" · ")||"—";
+      b.innerHTML='<span class="price"></span><span class="spec"></span>'+
+                  '<span class="loc"></span><span class="flags"></span><span class="date"></span>';
+      b.querySelector(".price").innerHTML='<span></span><span class="usd"></span>';
+      b.querySelector(".price>span").textContent=r.p!=null?usd(r.p):"—";
+      b.querySelector(".usd").textContent=dong(r);
+      b.querySelector(".spec").textContent=spec;
+      b.querySelector(".loc").textContent=[r.city,r.loc].filter(Boolean).join(" · ")||"city not stated";
+      b.querySelector(".flags").textContent=[r.sv?"sea view":null,r.fu===1?"furnished":null,
+        r.pk?"parking":null,r.pet===1?"pets ok":null,r.t==="long"?"long term":null,
+        r.np?"photo":null].filter(Boolean).join(" · ");
+      b.querySelector(".date").textContent=r.d;
+      b.addEventListener("click",function(){
+        if(b.nextElementSibling&&b.nextElementSibling.className==="detail"){
+          b.nextElementSibling.remove();b.setAttribute("aria-expanded","false");return;}
+        var d=document.createElement("div");d.className="detail";
+        var p=document.createElement("p");p.textContent=r.txt||"(no text)";
+        var m=document.createElement("div");m.className="meta";
+        var a=document.createElement("a");a.href=r.url;a.target="_blank";
+        a.rel="noopener";a.textContent="Open in Telegram ↗";m.appendChild(a);
+        [r.city,r.d].filter(Boolean).forEach(function(s){
+          var sp=document.createElement("span");sp.textContent=s;m.appendChild(sp);});
+        d.appendChild(p);d.appendChild(m);b.after(d);b.setAttribute("aria-expanded","true");
+      });
+      host.appendChild(b);
+    });
+    $("hint").textContent=rows.length>400
+      ? "Showing the first 400 — narrow the filters to see the rest"
+      : "Select a row to read the original post";
+  }
+
+  function syncLabels(){
+    $("maxpv").textContent=state.maxp>=1500?"any":"up to "+usd(state.maxp)+
+      " ("+(state.maxp*25500/1e6).toFixed(0)+" млн)";
+    $("periodv").textContent=(state.from===DMIN&&state.to===DMAX)
+      ? "the whole archive, "+DMIN+" to "+DMAX
+      : state.from+" to "+state.to;
+    $("from").value=state.from; $("to").value=state.to;
+  }
+
+  function markPeriod(chip){
+    Array.prototype.forEach.call($("periods").children,function(c){
+      c.setAttribute("aria-pressed",String(c===chip));
+    });
+  }
+
+  $("periods").addEventListener("click",function(e){
+    var b=e.target.closest(".chip"); if(!b) return;
+    var days=+b.dataset.days;
+    state.from=days?shiftDays(DMAX,days):DMIN;
+    state.to=DMAX;
+    if(state.from<DMIN) state.from=DMIN;
+    markPeriod(b); syncLabels(); render();
+  });
+
+  ["from","to"].forEach(function(id){
+    $(id).addEventListener("change",function(e){
+      var v=e.target.value;
+      if(!v){ state[id]=(id==="from"?DMIN:DMAX); }
+      else { state[id]=v; }
+      if(state.from>state.to){            // keep the range the right way round
+        if(id==="from") state.to=state.from; else state.from=state.to;
+      }
+      markPeriod(null); syncLabels(); render();
+    });
+  });
+  $("sides").addEventListener("click",function(e){
+    var b=e.target.closest(".side");if(!b)return;
+    state.deal=b.dataset.deal;
+    Array.prototype.forEach.call(this.children,function(c){
+      c.setAttribute("aria-pressed",String(c===b));});
+    render();
+  });
+  cityBox.addEventListener("click",function(e){
+    var b=e.target.closest(".chip");if(!b)return;
+    var on=b.getAttribute("aria-pressed")==="true";
+    b.setAttribute("aria-pressed",String(!on));state.city[b.dataset.city]=!on;render();
+  });
+  bedBox.addEventListener("click",function(e){
+    var b=e.target.closest(".chip");if(!b)return;
+    var on=b.getAttribute("aria-pressed")==="true";
+    b.setAttribute("aria-pressed",String(!on));state.beds[b.dataset.bed]=!on;render();
+  });
+  ["q","sort"].forEach(function(id){
+    $(id).addEventListener("input",function(e){state[id]=e.target.value;render();});
+  });
+  $("maxp").addEventListener("input",function(e){
+    state.maxp=+e.target.value;syncLabels();render();});
+  $("reset").addEventListener("click",function(){
+    state={deal:state.deal,city:{},beds:{},maxp:1500,q:"",sort:"price",
+           from:DMIN,to:DMAX};
+    $("q").value="";$("sort").value="price";$("maxp").value=1500;
+    document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
+    markPeriod($("periods").firstElementChild);
+    syncLabels();render();
+  });
+
+  syncLabels();render();
+})();
+</script>
