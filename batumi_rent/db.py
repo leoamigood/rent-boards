@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS listings (
     address         TEXT,
     city            TEXT,
     kind            TEXT,
+    lat             REAL,
+    lon             REAL,
     furnished       INTEGER,       -- 1 yes / 0 no / NULL unknown
     pets            INTEGER,
     sea_view        INTEGER,
@@ -101,7 +103,7 @@ MESSAGE_COLUMNS = (
 LISTING_COLUMNS = (
     "chat", "msg_id", "date_utc", "deal_type", "term", "price", "currency",
     "price_usd", "price_max_usd", "rooms", "bedrooms", "layout", "area_sqm",
-    "floor", "floors_total", "district", "complex_name", "address", "city", "kind", "furnished", "pets",
+    "floor", "floors_total", "district", "complex_name", "address", "city", "kind", "lat", "lon", "furnished", "pets",
     "sea_view", "parking", "available_from", "is_agent", "phone", "contact",
     "lang", "dup_key", "usd_per_sqm", "parser_version", "parsed_at",
 )
@@ -109,7 +111,8 @@ LISTING_COLUMNS = (
 
 # Columns added after the first release, applied to databases already on disk.
 MIGRATIONS: dict[str, dict[str, str]] = {
-    "listings": {"address": "TEXT", "city": "TEXT", "kind": "TEXT"},
+    "listings": {"address": "TEXT", "city": "TEXT", "kind": "TEXT",
+                 "lat": "REAL", "lon": "REAL"},
     "messages": {"raw": "TEXT"},
 }
 

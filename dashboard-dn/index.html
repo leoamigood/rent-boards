@@ -71,6 +71,20 @@ input[type=range]{width:100%;accent-color:var(--blue)}
          font-size:25px;font-weight:500;line-height:1.15;margin-top:3px}
 .tile .sub{font-size:12px;color:var(--ink-3);margin-top:1px}
 
+.maprow{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(190px,1fr);
+        gap:13px;margin-bottom:13px}
+#map{height:min(62vh,470px)}
+.mapkey{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+        padding:13px 15px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.keyrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;
+        background:none;border:none;padding:4px 0;font:inherit;color:inherit;
+        cursor:pointer;text-align:left;border-bottom:1px solid var(--line)}
+.keyrow:last-child{border-bottom:none}
+.keyrow:hover .kname{color:var(--blue-ink)}
+.keyrow[aria-pressed="true"] .kname{color:var(--blue-ink);font-weight:700}
+.kname{font-size:12.5px;overflow-wrap:anywhere}
+.kval{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+@media (max-width:760px){.maprow{grid-template-columns:1fr}#map{height:56vh}}
 .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
         gap:13px;margin-bottom:24px}
 figure{margin:0;background:var(--surface);border:1px solid var(--line);
@@ -190,6 +204,26 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   </section>
 
   <section class="tiles" id="tiles" aria-label="Summary of the current selection"></section>
+
+  <section class="maprow">
+    <figure>
+      <figcaption>Where the listings are</figcaption>
+      <p class="cap">Each dot is one flat, placed by the ad's own coordinates</p>
+      <svg id="map" viewBox="0 0 560 480" preserveAspectRatio="xMidYMid meet"
+           role="img" aria-label="Map of rental listings across Da Nang"></svg>
+      <div class="legend-row">
+        <span class="lg"><span class="dot" style="background:var(--amber)"></span>better value than median</span>
+        <span class="lg"><span class="dot" style="background:var(--blue)"></span>at or above median</span>
+        <span class="lg"><span class="dot" style="background:var(--line-strong)"></span>filtered out</span>
+      </div>
+    </figure>
+    <aside class="mapkey">
+      <span class="lbl">Districts</span>
+      <div id="mapkey"></div>
+      <p class="cap" style="margin:4px 0 0">Select a district to filter, or hover a
+        dot for its price. Coordinates come from the listing itself.</p>
+    </aside>
+  </section>
 
   <section class="charts">
     <figure>
@@ -410,6 +444,153 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     });
   }
 
+
+  // ---- map -----------------------------------------------------------------
+  // No basemap: the artifact sandbox blocks tile images, so the city is drawn
+  // from the listings themselves. 2,000 dots trace the streets and the coast
+  // well enough to navigate by, and district labels sit at the median point of
+  // their own listings. Frame is fixed to the whole dataset so it never jumps
+  // while you filter.
+  var MAPW=560, MAPH=480, MAPPAD=26;
+  var geo=ALL.filter(function(r){return r.lat&&r.lon;});
+  var mapProj=null;
+  if(geo.length>20){
+    var la=geo.map(function(r){return r.lat;}).sort(function(a,b){return a-b;});
+    var lo=geo.map(function(r){return r.lon;}).sort(function(a,b){return a-b;});
+    var q=function(v,f){return v[Math.min(Math.floor(v.length*f),v.length-1)];};
+    var la0=q(la,.005), la1=q(la,.995), lo0=q(lo,.005), lo1=q(lo,.995);
+    var kx=Math.cos((la0+la1)/2*Math.PI/180);          // longitude shrinks with latitude
+    var spanX=(lo1-lo0)*kx, spanY=(la1-la0);
+    var scale=Math.min((MAPW-2*MAPPAD)/spanX,(MAPH-2*MAPPAD)/spanY);
+    var offX=(MAPW-spanX*scale)/2, offY=(MAPH-spanY*scale)/2;
+    mapProj={
+      x:function(lon){return offX+(lon-lo0)*kx*scale;},
+      y:function(lat){return offY+(la1-lat)*scale;},
+      // A few ads are geocoded to Hanoi or Saigon by mistake. They survive the
+      // country-wide sanity check but land thousands of units off-canvas, and
+      // the svg does not clip, so they would paint over the page.
+      inside:function(x,y){return x>=-2&&x<=MAPW+2&&y>=-2&&y<=MAPH+2;},
+      scale:scale, la0:la0, la1:la1, lo0:lo0, lo1:lo1
+    };
+  }
+
+  // District anchors: the median point of each district's own listings.
+  var anchors=[];
+  if(mapProj){
+    var byDist={};
+    geo.forEach(function(r){if(r.dist)(byDist[r.dist]=byDist[r.dist]||[]).push(r);});
+    Object.keys(byDist).forEach(function(d){
+      var g=byDist[d];
+      if(g.length<12) return;
+      anchors.push({d:d,n:g.length,
+        lat:median(g.map(function(r){return r.lat;})),
+        lon:median(g.map(function(r){return r.lon;}))});
+    });
+  }
+
+  function drawMap(matched){
+    var svg=$("map"); clear(svg);
+    if(!mapProj){svg.appendChild(txt(MAPW/2,MAPH/2,"No coordinates in this data",
+      {anchor:"middle",size:10}));return;}
+    var hit={};
+    matched.forEach(function(r){hit[r.id]=1;});
+    var pp=matched.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
+    var med=median(pp);
+
+    // context first, so the current selection sits on top of it
+    var dim=el("g",{});
+    geo.forEach(function(r){
+      if(hit[r.id]) return;
+      var x=mapProj.x(r.lon), y=mapProj.y(r.lat);
+      if(!mapProj.inside(x,y)) return;
+      dim.appendChild(el("circle",{cx:x.toFixed(1),cy:y.toFixed(1),r:1.6,
+        fill:"var(--line-strong)","fill-opacity":.5}));
+    });
+    svg.appendChild(dim);
+
+    var live=el("g",{});
+    geo.forEach(function(r){
+      if(!hit[r.id]) return;
+      var x=mapProj.x(r.lon), y=mapProj.y(r.lat);
+      if(!mapProj.inside(x,y)) return;
+      var good=med!=null&&r.ppm!=null&&r.ppm<med;
+      var c=el("circle",{cx:x.toFixed(1),cy:y.toFixed(1),
+        r:2.7,fill:good?"var(--amber)":"var(--blue)","fill-opacity":.72,
+        stroke:"var(--surface)","stroke-width":.5,style:"cursor:pointer"});
+      c.appendChild(el("title",{})).textContent=both(r)+
+        (r.a?" · "+Math.round(r.a)+" m²":"")+(r.bd!=null?" · "+r.bd+" bed":"")+
+        (r.dist?" · "+shortDist(r.dist):"");
+      c.addEventListener("click",function(){openListing(r.id);});
+      live.appendChild(c);
+    });
+    svg.appendChild(live);
+
+    anchors.forEach(function(a){
+      var x=mapProj.x(a.lon), y=mapProj.y(a.lat);
+      var t=txt(x,y,shortDist(a.d).toUpperCase(),
+        {anchor:"middle",size:9,fill:"var(--ink)"});
+      t.setAttribute("stroke","var(--surface)");
+      t.setAttribute("stroke-width","3");
+      t.setAttribute("paint-order","stroke");
+      t.setAttribute("letter-spacing","0.06em");
+      t.setAttribute("style","pointer-events:none");
+      svg.appendChild(t);
+    });
+
+    // scale bar — 1 degree of latitude is 111.32 km everywhere
+    var kmPerUnit=111.32/mapProj.scale;
+    var km=2, barW=km/kmPerUnit;
+    if(barW>MAPW*0.45){km=1;barW=km/kmPerUnit;}
+    var bx=MAPPAD, by=MAPH-12;
+    svg.appendChild(el("line",{x1:bx,x2:bx+barW,y1:by,y2:by,
+      stroke:"var(--ink-3)","stroke-width":1.5}));
+    [bx,bx+barW].forEach(function(x){
+      svg.appendChild(el("line",{x1:x,x2:x,y1:by-3,y2:by+3,
+        stroke:"var(--ink-3)","stroke-width":1.5}));
+    });
+    svg.appendChild(txt(bx+barW+6,by+3,km+" km",{size:8}));
+  }
+
+  function openListing(id){
+    var host=$("rows");
+    var btn=host.querySelector('[data-id="'+id+'"]');
+    if(!btn){
+      $("hint").textContent="That one is outside the first 400 shown — narrow the filters to reach it";
+      return;
+    }
+    if(!(btn.nextElementSibling&&btn.nextElementSibling.className==="detail")) btn.click();
+    btn.scrollIntoView({block:"center",behavior:"smooth"});
+    btn.focus({preventScroll:true});
+  }
+
+  function drawKey(matched){
+    var host=$("mapkey"); host.innerHTML="";
+    var counts={};
+    matched.forEach(function(r){if(r.dist)(counts[r.dist]=counts[r.dist]||[]).push(r.p);});
+    anchors.slice().sort(function(a,b){return (counts[b.d]||[]).length-(counts[a.d]||[]).length;})
+      .forEach(function(a){
+        var ps=(counts[a.d]||[]).filter(function(v){return v!=null;});
+        var b=document.createElement("button");
+        b.type="button"; b.className="keyrow";
+        b.setAttribute("aria-pressed",String(!!state.dist[a.d]));
+        b.innerHTML='<span class="kname"></span><span class="kval"></span>';
+        b.querySelector(".kname").textContent=shortDist(a.d);
+        b.querySelector(".kval").textContent=ps.length
+          ? ps.length+" · "+usd(median(ps)) : "0";
+        b.addEventListener("click",function(){
+          state.dist[a.d]=!state.dist[a.d];
+          // District names carry spaces and diacritics, so match on the
+          // property rather than building an attribute selector from them.
+          Array.prototype.forEach.call($("dists").children,function(c){
+            if(c.dataset.dist===a.d)
+              c.setAttribute("aria-pressed",String(!!state.dist[a.d]));
+          });
+          render();
+        });
+        host.appendChild(b);
+      });
+  }
+
   function render(){
     var rows=ALL.filter(passes).sort(SORTS[state.sort]);
     var pr=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
@@ -433,6 +614,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     });
 
     histogram(rows);byDistrict(rows);scatter(rows);
+    drawMap(rows);drawKey(rows);
     $("count").textContent=rows.length===ALL.length
       ? "All "+rows.length.toLocaleString("en-US")+" listings"
       : rows.length.toLocaleString("en-US")+" of "+ALL.length.toLocaleString("en-US")+" match";
@@ -448,6 +630,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       var b=document.createElement("button");
       b.type="button";b.className="row"+(medPpm&&r.ppm!=null&&r.ppm<medPpm?" good":"");
       b.setAttribute("aria-expanded","false");
+      b.dataset.id=r.id;
       var spec=[r.bd!=null?(r.bd===0?"room":r.bd+" bed"):null,
                 r.a?Math.round(r.a)+" m²":null,
                 r.kind==="house"?"house":null].filter(Boolean).join(" · ")||"—";

@@ -161,6 +161,12 @@ def listing_fields(raw: dict[str, Any], vnd_per_usd: float) -> dict[str, Any]:
     if raw.get("pty_project_name"):
         out["complex_name"] = raw["pty_project_name"]
 
+    # A handful of ads are geocoded to another city entirely; keep only points
+    # that fall inside Vietnam and let the map fit itself to the rest.
+    lat, lon = raw.get("latitude"), raw.get("longitude")
+    if lat and lon and 8.0 <= lat <= 24.0 and 102.0 <= lon <= 110.0:
+        out["lat"], out["lon"] = float(lat), float(lon)
+
     if out.get("price_usd") and out.get("area_sqm"):
         out["usd_per_sqm"] = round(out["price_usd"] / out["area_sqm"], 2)
     return out

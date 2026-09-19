@@ -85,6 +85,8 @@ def main() -> int:
             "cur": r["currency"],
             "city": r["city"],
             "kind": r["kind"],
+            "lat": r["lat"],
+            "lon": r["lon"],
             "bd": r["bedrooms"],
             "a": r["area_sqm"],
             "r": r["rooms"],
