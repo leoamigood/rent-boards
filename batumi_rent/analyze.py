@@ -27,6 +27,7 @@ class Filters:
     min_area: float | None = None
     max_area: float | None = None
     district: str | None = None
+    city: str | None = None
     complex_name: str | None = None
     furnished: bool | None = None
     pets: bool | None = None
@@ -39,6 +40,7 @@ class Filters:
     has_price: bool = False
     has_area: bool = False
     dedupe: bool = True
+    split_by_city: bool = False
 
 
 def build_where(f: Filters) -> tuple[str, list[Any]]:
@@ -63,6 +65,8 @@ def build_where(f: Filters) -> tuple[str, list[Any]]:
         add("l.area_sqm >= ?", f.min_area)
     if f.max_area is not None:
         add("l.area_sqm <= ?", f.max_area)
+    if f.city:
+        add("l.city = ?", f.city)
     if f.district:
         add("l.district LIKE ?", f"%{f.district}%")
     if f.complex_name:
@@ -98,12 +102,31 @@ def build_where(f: Filters) -> tuple[str, list[Any]]:
 # price, size, rooms and floor. Address is deliberately left out, since the same
 # ad shows up as both "Химшиашвили" and "Химшиашвили 1". Falls back to the text
 # fingerprint when too little was extracted to identify the flat.
-FINGERPRINT = """
+#
+# The attributes alone are not unique over a long archive: in a chat covering a
+# whole country for a year, two different flats easily share a price and a
+# bedroom count. Time settles it, but a fixed calendar bucket does not — a
+# boundary landing mid-week splits genuine reposts in two. So matching rows are
+# grouped only while the gap between consecutive posts stays under GAP_DAYS
+# (see query): reposts of one flat arrive within days, the same figures months
+# later are a different flat.
+# City is deliberately optional. In a one-city chat it splits one flat in two
+# whenever a repost happens to name the city and the original does not; in a
+# country-wide chat it keeps two same-priced flats in different cities apart.
+# Turn it on only where the chat actually spans cities (--split-cities).
+def fingerprint(split_by_city: bool = False) -> str:
+    city = " || '/' || COALESCE(l.city, '')" if split_by_city else ""
+    return f"""
 CASE WHEN l.price_usd IS NOT NULL AND (l.area_sqm IS NOT NULL OR l.rooms IS NOT NULL)
      THEN 'f:' || l.price_usd || '/' || COALESCE(l.area_sqm, -1) || '/'
-                || COALESCE(l.rooms, -1) || '/' || COALESCE(l.floor, -1)
+                || COALESCE(l.rooms, -1) || '/' || COALESCE(l.floor, -1){city}
      ELSE 'd:' || l.dup_key END
 """
+
+
+FINGERPRINT = fingerprint()
+
+GAP_DAYS = 14
 
 SORTS = {
     "price": "l.price_usd ASC NULLS LAST",
@@ -120,11 +143,26 @@ def query(conn: sqlite3.Connection, f: Filters, sort: str = "date",
     where, params = build_where(f)
     order = SORTS.get(sort, SORTS["date"])
     if f.dedupe:
-        sql = (f"SELECT * FROM (SELECT l.*, m.text, m.sender_username, m.sender_name, "
-               f"m.n_photos, m.link, ROW_NUMBER() OVER (PARTITION BY {FINGERPRINT} "
-               f"ORDER BY l.date_utc DESC) AS rn "
-               f"FROM listings l JOIN messages m USING (chat, msg_id){where}) "
-               f"WHERE rn = 1 ORDER BY {order.replace('l.', '')} LIMIT ?")
+        # Rows sharing a fingerprint are one flat only while consecutive posts
+        # stay within GAP_DAYS of each other; a longer silence starts a new
+        # group. Keeps the newest post of each group.
+        sql = (f"WITH base AS ("
+               f"  SELECT l.*, m.text, m.sender_username, m.sender_name, m.n_photos,"
+               f"         m.link, {fingerprint(f.split_by_city)} AS ak, julianday(l.date_utc) AS jd"
+               f"  FROM listings l JOIN messages m USING (chat, msg_id){where}),"
+               f" flagged AS ("
+               f"  SELECT *, CASE WHEN LAG(jd) OVER w IS NULL"
+               f"                   OR jd - LAG(jd) OVER w > {GAP_DAYS}"
+               f"                 THEN 1 ELSE 0 END AS newgrp"
+               f"  FROM base WINDOW w AS (PARTITION BY ak ORDER BY jd)),"
+               f" grouped AS ("
+               f"  SELECT *, SUM(newgrp) OVER (PARTITION BY ak ORDER BY jd"
+               f"           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS gid"
+               f"  FROM flagged)"
+               f" SELECT * FROM ("
+               f"  SELECT *, ROW_NUMBER() OVER (PARTITION BY ak, gid"
+               f"           ORDER BY date_utc DESC) AS rn FROM grouped)"
+               f" WHERE rn = 1 ORDER BY {order.replace('l.', '')} LIMIT ?")
     else:
         sql = f"{BASE}{where} ORDER BY {order} LIMIT ?"
     return conn.execute(sql, [*params, limit]).fetchall()
@@ -156,7 +194,7 @@ def _fmt(row: sqlite3.Row) -> dict[str, str]:
         "$/m2": f"{row['usd_per_sqm']:.1f}" if row["usd_per_sqm"] else "—",
         "floor": (f"{row['floor']}/{row['floors_total']}" if row["floors_total"]
                   else (str(row["floor"]) if row["floor"] else "—")),
-        "where": (row["complex_name"] or row["district"] or "—")[:18],
+        "where": (row["complex_name"] or row["district"] or row["city"] or "—")[:18],
         "flags": flags,
         "link": row["link"] or "",
     }
@@ -282,6 +320,7 @@ def summary(conn: sqlite3.Connection, f: Filters) -> None:
               f"median {_money(pct(0.50))}   p75 {_money(pct(0.75))}   "
               f"p90 {_money(pct(0.90))}")
 
+    _group_summary(rows, "city", "by city")
     _group_summary(rows, "layout", "by layout")
     _group_summary(rows, "district", "by district")
     _group_summary(rows, "complex_name", "by complex")

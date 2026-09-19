@@ -75,7 +75,8 @@ def listing_row(msg_row: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
     if not parser.is_listing(text):
         return None
     fields = parser.parse(text, sender_id=msg_row.get("sender_id"),
-                          gel_per_usd=cfg.gel_per_usd, eur_per_usd=cfg.eur_per_usd)
+                          gel_per_usd=cfg.gel_per_usd, eur_per_usd=cfg.eur_per_usd,
+                          vnd_per_usd=cfg.vnd_per_usd)
     fields.update(chat=msg_row["chat"], msg_id=msg_row["msg_id"],
                   date_utc=msg_row["date_utc"], parsed_at=db.now_utc())
     return fields

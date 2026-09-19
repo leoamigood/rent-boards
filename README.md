@@ -149,6 +149,23 @@ Check parser accuracy against the sample posts any time:
 python tests/test_parser.py
 ```
 
+## Other chats
+
+Each chat gets its own database, and the parser handles more than one market:
+
+```bash
+.venv/bin/python -m batumi_rent --chat t.me/Rent_Vietnam/238 --db data/vietnam.db fetch --limit 5000
+.venv/bin/python -m batumi_rent --chat Rent_Vietnam --db data/vietnam.db stats --split-cities
+```
+
+Vietnamese ads quote rent in millions of dong ("5,5 млн", "15 миллионов VND"),
+count bedrooms rather than using Batumi's `2+1` notation, and almost never give
+a floor area — so `--sort value` has little to work with there and `--city` is
+the dimension that matters. Pass `--split-cities` on any chat covering more than
+one city, so two same-priced flats in different cities are not merged.
+
+The package is still called `batumi_rent`; the name is now too narrow.
+
 ## Notes
 
 - The session file and database live in `data/` and are gitignored — the

@@ -21,6 +21,7 @@ def _filter_args(p: argparse.ArgumentParser) -> None:
                    help="total rooms, e.g. --rooms 2 3")
     g.add_argument("--min-area", type=float, metavar="M2")
     g.add_argument("--max-area", type=float, metavar="M2")
+    g.add_argument("--city", help="exact city name, e.g. --city \"Nha Trang\"")
     g.add_argument("--district", help="substring, e.g. --district Химш")
     g.add_argument("--complex", dest="complex_name", help="substring of the building name")
     g.add_argument("--furnished", action=argparse.BooleanOptionalAction, default=None)
@@ -33,6 +34,9 @@ def _filter_args(p: argparse.ArgumentParser) -> None:
     g.add_argument("--text", help="free-text substring of the original post")
     g.add_argument("--has-price", action="store_true")
     g.add_argument("--has-area", action="store_true")
+    g.add_argument("--split-cities", action="store_true",
+                   help="treat same-priced flats in different cities as different "
+                        "listings (use for chats covering several cities)")
     g.add_argument("--no-dedupe", dest="dedupe", action="store_false", default=True,
                    help="keep repeated re-posts of the same ad")
 
@@ -41,7 +45,8 @@ def _filters(a: argparse.Namespace) -> Filters:
     return Filters(
         deal=a.deal, term=a.term, min_price=a.min_price, max_price=a.max_price,
         rooms=a.rooms or [], min_area=a.min_area, max_area=a.max_area,
-        district=a.district, complex_name=a.complex_name, furnished=a.furnished,
+        district=a.district, city=a.city, split_by_city=a.split_cities,
+        complex_name=a.complex_name, furnished=a.furnished,
         pets=a.pets, sea_view=a.sea_view, parking=a.parking, no_agent=a.no_agent,
         with_photos=a.with_photos, days=a.days, text=a.text,
         has_price=a.has_price, has_area=a.has_area, dedupe=a.dedupe,

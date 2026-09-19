@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,6 +40,7 @@ class Config:
     session_path: Path
     gel_per_usd: float
     eur_per_usd: float
+    vnd_per_usd: float
 
     def require_api(self) -> tuple[int, str]:
         if not self.api_id or not self.api_hash:
@@ -62,6 +64,7 @@ def load(chat_override: str | None = None, db_override: str | None = None) -> Co
         session_path=_path(os.environ.get("SESSION_PATH", "data/tg.session")),
         gel_per_usd=float(os.environ.get("GEL_PER_USD", "2.70")),
         eur_per_usd=float(os.environ.get("EUR_PER_USD", "0.92")),
+        vnd_per_usd=float(os.environ.get("VND_PER_USD", "25500")),
     )
     cfg.db_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.session_path.parent.mkdir(parents=True, exist_ok=True)
@@ -69,7 +72,7 @@ def load(chat_override: str | None = None, db_override: str | None = None) -> Co
 
 
 def normalise_chat(value: str) -> str:
-    """Accept t.me/foo, https://t.me/foo, @foo, foo or a numeric id."""
+    """Accept t.me/foo, t.me/foo/123, https://t.me/foo, @foo, foo or a numeric id."""
     value = value.strip()
     for prefix in ("https://", "http://"):
         if value.startswith(prefix):
@@ -77,4 +80,7 @@ def normalise_chat(value: str) -> str:
     if value.startswith("t.me/"):
         value = value[len("t.me/"):]
     value = value.strip("/").lstrip("@")
+    # A link to one post ends in /<message id>; the chat is everything before it.
+    if not value.lstrip("-").isdigit():
+        value = re.sub(r"/\d+$", "", value)
     return value

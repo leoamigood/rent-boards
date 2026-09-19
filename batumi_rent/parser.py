@@ -13,7 +13,7 @@ import re
 import unicodedata
 from typing import Any
 
-PARSER_VERSION = 6
+PARSER_VERSION = 8
 
 # ---------------------------------------------------------------- normalising
 
@@ -75,6 +75,61 @@ _DEPOSIT_AFTER = re.compile(r"^[^.\n]{0,25}(депозит|залог|комис
 
 PRICE_MIN, PRICE_MAX = 50, 100_000
 
+# ----------------------------------------------------------------- VND prices
+# Vietnamese ads quote rent in millions of dong — "5,5 млн", "15 миллионов VND",
+# "7,5–8 млн донгов" — with dollars appearing only as an occasional aside. The
+# figures are far outside the band the dollar/lari logic above is tuned for, so
+# they get their own pass rather than a wider net that would loosen that one.
+_VND_MILLIONS = re.compile(
+    r"(?<![\d.,])(\d{1,3}(?:[.,]\d{1,2})?)\s*"
+    r"(?:(?:-|–|—|до)\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*)?"
+    r"(?:млн|миллион\w*|mln)\b", re.IGNORECASE)
+_VND_PLAIN = re.compile(
+    r"(?<![\d.,])(\d{1,3}(?:[ .,]\d{3}){1,3})\s*(?:vnd|₫|донг\w*)\b", re.IGNORECASE)
+# Utilities, deposits and per-unit tariffs are quoted in the same units.
+_NOT_RENT_VND = re.compile(
+    r"(коммунал\w*|электр\w*|вод[аыу]|интернет|уборк\w*|депозит|залог|комисси\w*|"
+    r"киловатт|квт|свет|газ|счетчик\w*|штраф)[^\d\n]{0,30}$", re.IGNORECASE)
+# A lari figure in millions would be a sale price, not Vietnamese rent.
+_GEL_NEAR = re.compile(r"^\D{0,12}(лар[ие]\w*|gel|₾)", re.IGNORECASE)
+
+VND_MIN, VND_MAX = 2.5e6, 400e6
+
+
+def extract_price_vnd(text: str) -> tuple[float | None, float | None]:
+    """Monthly rent in dong, or (None, None). Second value is a range's top."""
+    best: tuple[int, float, float | None] | None = None
+    for m in _VND_MILLIONS.finditer(text):
+        before = text[max(0, m.start() - 34):m.start()]
+        if _NOT_RENT_VND.search(before) or _SURCHARGE_BEFORE.search(before):
+            continue
+        if _GEL_NEAR.match(text[m.end():m.end() + 16]):
+            continue
+        lo = _to_number(m.group(1))
+        if lo is None:
+            continue
+        lo *= 1e6
+        if not (VND_MIN <= lo <= VND_MAX):
+            continue
+        hi = _to_number(m.group(2)) * 1e6 if m.group(2) else None
+        if hi is not None and not (VND_MIN <= hi <= VND_MAX):
+            hi = None
+        score = 2 if re.search(r"(цена|стоим|аренд|плата|месяц|rent|снять|сдам)",
+                               before, re.IGNORECASE) else 0
+        if best is None or score > best[0]:
+            best = (score, lo, hi)
+    if best:
+        return best[1], best[2]
+
+    for m in _VND_PLAIN.finditer(text):
+        before = text[max(0, m.start() - 34):m.start()]
+        if _NOT_RENT_VND.search(before):
+            continue
+        value = _to_number(m.group(1))
+        if value is not None and VND_MIN <= value <= VND_MAX:
+            return value, None
+    return None, None
+
 
 def _to_number(raw: str) -> float | None:
     cleaned = re.sub(r"[ .,](?=\d{3}\b)", "", raw)   # thousands separators only
@@ -132,6 +187,10 @@ _DISCOUNT = re.compile(rf"({_NUM})\s*(?P<c1>{_CUR_ANY})\s*({_NUM})\s*(?P<c2>{_CU
 
 
 def extract_price(text: str) -> tuple[float | None, float | None, str | None]:
+    vnd, vnd_hi = extract_price_vnd(text)
+    if vnd is not None:
+        return vnd, vnd_hi, "VND"
+
     if m := _DISCOUNT.search(text):
         was, now = _to_number(m.group(1)), _to_number(m.group(3))
         if was and now and now < was and PRICE_MIN <= now <= PRICE_MAX:
@@ -147,8 +206,8 @@ def extract_price(text: str) -> tuple[float | None, float | None, str | None]:
     return value, high, cur
 
 
-def to_usd(price: float | None, currency: str | None,
-           gel_per_usd: float, eur_per_usd: float) -> float | None:
+def to_usd(price: float | None, currency: str | None, gel_per_usd: float,
+           eur_per_usd: float, vnd_per_usd: float = 25_500.0) -> float | None:
     if price is None:
         return None
     match currency:
@@ -156,11 +215,14 @@ def to_usd(price: float | None, currency: str | None,
             return round(price / gel_per_usd, 2)
         case "EUR":
             return round(price / eur_per_usd, 2)
+        case "VND":
+            return round(price / vnd_per_usd, 2)
         case _:
-            # Bare numbers in these chats are quoted in dollars by convention;
-            # a four-digit bare number is much more likely to be lari.
-            if currency is None and price >= 2000:
-                return round(price / gel_per_usd, 2)
+            # Bare numbers are quoted in dollars by convention. An earlier rule
+            # read a large bare number as lari; it never once fired on the
+            # Batumi archive it was written for, and misread Vietnamese posts,
+            # so it is gone. A bare figure too large to be rent is caught by the
+            # sale reclassification in parse() instead.
             return round(price, 2)
 
 
@@ -214,10 +276,15 @@ _ROOMS_WORD = {
     "пятикомнат": 5,
 }
 _BEDROOMS_EN = re.compile(r"\b([1-5])\s*(?:bed\s?rooms?|bedrooms?|br|bdr)\b", re.IGNORECASE)
+# Vietnamese ads count bedrooms rather than using the Batumi "2+1" notation.
+_BEDROOMS_RU = re.compile(r"\b([1-5])\s*(?:-|\s)?\s*спал[ье]\w*", re.IGNORECASE)
+_BEDROOMS_WORD = {"одна спальн": 1, "две спальн": 2, "двумя спальн": 2,
+                  "три спальн": 3, "тремя спальн": 3, "четыре спальн": 4}
+_FLAT_SLANG = {"однушк": 1, "двушк": 2, "трешк": 3, "трёшк": 3, "студийк": 0}
 
 _AREA = re.compile(
     r"(?<![\d,.])(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:кв\.?\s*м\.?|кв\.?метр\w*|м\s*[²2]\b|"
-    r"м\.?кв|sq\.?\s?m|sqm|кв\b)", re.IGNORECASE)
+    r"м\.?кв|квадратн\w*\s*метр\w*|sq\.?\s?m|sqm|кв\b)", re.IGNORECASE)
 _AREA_WORD = re.compile(r"(?:площад\w*|area)[^\d\n]{0,10}(\d{1,4}(?:[.,]\d{1,2})?)",
                         re.IGNORECASE)
 AREA_MIN, AREA_MAX = 8, 600
@@ -248,6 +315,15 @@ def extract_rooms(text: str) -> tuple[int | None, int | None, str | None]:
     if m := _BEDROOMS_EN.search(text):
         n = int(m.group(1))
         return n + 1, n, f"{n} bedroom"
+    if m := _BEDROOMS_RU.search(text):
+        n = int(m.group(1))
+        return n + 1, n, f"{n} bedroom"
+    for word, n in _BEDROOMS_WORD.items():
+        if word in text:
+            return n + 1, n, f"{n} bedroom"
+    for word, n in _FLAT_SLANG.items():
+        if word in text:
+            return max(n, 1), n, "studio" if n == 0 else f"{n} bedroom"
     return None, None, None
 
 
@@ -343,11 +419,43 @@ def extract_address(text: str) -> str | None:
     return None
 
 
-def extract_location(text: str) -> tuple[str | None, str | None, str | None]:
+# Chats that cover a whole country need the city as its own dimension. Aliases
+# are matched against the normalised (lowercased, ё→е) text.
+CITIES: dict[str, tuple[str, ...]] = {
+    "Nha Trang": ("нячанг", "нha trang", "nha trang", "нha-trang", "нячанге", "нячанга"),
+    "Da Nang": ("дананг", "да нанг", "да-нанг", "da nang", "danang", "дананге", "днг"),
+    "Phu Quoc": ("фукуок", "фу куок", "phu quoc", "phuquoc", "фукуоке", "фукуока"),
+    "Ho Chi Minh": ("хошимин", "сайгон", "ho chi minh", "saigon", "hcmc", "хчм"),
+    "Hanoi": ("ханой", "hanoi", "ha noi", "ханое"),
+    "Mui Ne": ("муйне", "муй не", "mui ne", "муйнe"),
+    "Vung Tau": ("вунгтау", "вунг тау", "vung tau"),
+    "Da Lat": ("далат", "da lat", "dalat", "далате"),
+    "Hoi An": ("хойан", "хой ан", "hoi an", "хойане"),
+    "Phan Thiet": ("фантьет", "phan thiet"),
+    "Cam Ranh": ("камрань", "cam ranh", "камрани"),
+    "Quy Nhon": ("куинен", "quy nhon", "куинён"),
+    "Hue": ("хюэ", "\bhue\b"),
+    "Ha Long": ("халонг", "ha long", "halong"),
+    "Batumi": ("батуми", "batumi"),
+}
+
+
+def extract_city(text: str) -> str | None:
+    best: tuple[int, str] | None = None
+    for name, aliases in CITIES.items():
+        for alias in aliases:
+            pos = text.find(alias) if "\\b" not in alias else -1
+            if pos >= 0 and (best is None or pos < best[0]):
+                best = (pos, name)
+                break
+    return best[1] if best else None
+
+
+def extract_location(text: str) -> tuple[str | None, str | None, str | None, str | None]:
     district = next((name for name, aliases in DISTRICTS.items()
                      if any(a in text for a in aliases)), None)
     complex_name = next((c.title() for c in COMPLEXES if c in text), None)
-    return district, complex_name, extract_address(text)
+    return district, complex_name, extract_address(text), extract_city(text)
 
 
 # ---------------------------------------------------------------------- flags
@@ -463,26 +571,29 @@ def is_listing(raw_text: str) -> bool:
 
 
 def parse(raw_text: str, *, sender_id: int | None = None,
-          gel_per_usd: float = 2.70, eur_per_usd: float = 0.92) -> dict[str, Any]:
+          gel_per_usd: float = 2.70, eur_per_usd: float = 0.92,
+          vnd_per_usd: float = 25_500.0) -> dict[str, Any]:
     text = normalise(raw_text)
     deal, term = extract_deal(text)
     price, price_hi, currency = extract_price(text)
     rooms, bedrooms, layout = extract_rooms(text)
     area = extract_area(text)
     floor, floors_total = extract_floor(text)
-    district, complex_name, address = extract_location(text)
+    district, complex_name, address, city = extract_location(text)
     phone, contact = extract_contacts(raw_text or "")
 
-    if deal == "rent_offer" and (price or 0) >= 10_000:
-        # No flat in Batumi rents for five figures a month; this is a sale post.
+    price_usd = to_usd(price, currency, gel_per_usd, eur_per_usd, vnd_per_usd)
+    price_max_usd = to_usd(price_hi, currency, gel_per_usd, eur_per_usd, vnd_per_usd)
+
+    # These thresholds are in dollars, so they have to be applied to the
+    # converted figure — a Vietnamese rent of 15 million dong is $590, not a
+    # sale price.
+    if deal == "rent_offer" and (price_usd or 0) >= 10_000:
         deal = "sale"
-    if deal == "other" and (layout or rooms) and price:
+    if deal == "other" and (layout or rooms) and price_usd:
         # A structured ad with no verb. These chats are for renting, so an ad
         # is an offer unless the figure is plainly a purchase price.
-        deal = "sale" if price >= 15_000 else "rent_offer"
-
-    price_usd = to_usd(price, currency, gel_per_usd, eur_per_usd)
-    price_max_usd = to_usd(price_hi, currency, gel_per_usd, eur_per_usd)
+        deal = "sale" if price_usd >= 15_000 else "rent_offer"
 
     available = None
     if m := _AVAILABLE.search(text):
@@ -506,6 +617,7 @@ def parse(raw_text: str, *, sender_id: int | None = None,
         "district": district or ("Первая линия" if _SEA_LINE.search(text) else None),
         "complex_name": complex_name,
         "address": address,
+        "city": city,
         "furnished": _tri(_FURNISHED, _NO_FURNITURE, text),
         "pets": _tri(_PETS_OK, _PETS_NO, text),
         "sea_view": 1 if _SEA_VIEW.search(text) else None,
