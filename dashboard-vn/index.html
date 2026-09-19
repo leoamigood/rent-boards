@@ -134,8 +134,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     <p class="eyebrow" id="provenance">loading…</p>
     <h1>Vietnam Rent Board</h1>
     <p class="standfirst">Flats offered across Vietnamese cities, and what people
-      looking for one say they will pay. Rent is quoted in millions of dong, as the
-      ads write it, with a dollar conversion underneath.</p>
+      looking for one say they will pay. Rent is shown in US dollars so every figure is comparable, converted from the millions of dong the ads are written in, which stays alongside.</p>
   </header>
 
   <div class="sides" id="sides" role="group" aria-label="Which side of the market">
@@ -246,11 +245,11 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
   var CITIES=["Da Nang","Nha Trang","Phu Quoc","Ho Chi Minh","Da Lat","Vung Tau","Hanoi","Hoi An"];
 
-  // Ads are written in millions of dong; that is the number people recognise.
-  function native(r){
+  // Dollars lead so every figure on the board is comparable; the dong number
+  // the ad was written in stays alongside, since that is what gets negotiated.
+  function dong(r){
     if(r.cur==="VND" && r.raw) return (r.raw/1e6).toFixed(1).replace(/\.0$/,"")+" млн";
-    if(r.p!=null) return usd(r.p);
-    return "—";
+    return "";
   }
 
   $("provenance").textContent="t.me/"+(META.chat||"")+" · "+
@@ -439,7 +438,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     var pr=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
     var beds=rows.map(function(r){return r.bd;}).filter(function(v){return v!=null;});
     var mid=median(pr);
-    var midVnd=mid!=null?(mid*25500/1e6).toFixed(1)+" млн":"—";
+    var midDong=mid!=null?(mid*25500/1e6).toFixed(1)+" млн a month":"—";
 
     $("c1title").textContent=offer?"What rent costs":"What people will pay";
     $("c1cap").textContent=offer?"Flats per price band":"Budgets per price band";
@@ -447,7 +446,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     $("tiles").innerHTML="";
     [[offer?"Flats offered":"People looking", rows.length.toLocaleString("en-US"),
       pr.length+" with a price"],
-     [offer?"Median rent":"Median budget", midVnd, mid!=null?usd(mid)+" a month":"—"],
+     [offer?"Median rent":"Median budget", mid!=null?usd(mid):"—", midDong],
      ["Typical size", beds.length?(median(beds)===0?"studio":median(beds)+" bed"):"—",
       beds.length+" say"],
      ["Cheapest quarter", pr.length?usd(pr.slice().sort(function(a,b){return a-b;})[Math.floor(pr.length/4)]):"—",
@@ -483,8 +482,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       b.innerHTML='<span class="price"></span><span class="spec"></span>'+
                   '<span class="loc"></span><span class="flags"></span><span class="date"></span>';
       b.querySelector(".price").innerHTML='<span></span><span class="usd"></span>';
-      b.querySelector(".price>span").textContent=native(r);
-      b.querySelector(".usd").textContent=(r.cur==="VND"&&r.p!=null)?usd(r.p):"";
+      b.querySelector(".price>span").textContent=r.p!=null?usd(r.p):"—";
+      b.querySelector(".usd").textContent=dong(r);
       b.querySelector(".spec").textContent=spec;
       b.querySelector(".loc").textContent=[r.city,r.loc].filter(Boolean).join(" · ")||"city not stated";
       b.querySelector(".flags").textContent=[r.sv?"sea view":null,r.fu===1?"furnished":null,

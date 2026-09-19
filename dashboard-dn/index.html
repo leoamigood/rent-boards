@@ -121,8 +121,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     <p class="eyebrow" id="provenance">loading…</p>
     <h1>Da Nang Rent Board</h1>
     <p class="standfirst">Every apartment, house and room listed for rent in Da Nang
-      on Chotot, ranked by value per square metre. Prices are the landlord's own,
-      in millions of dong, with a dollar conversion underneath.</p>
+      on Chotot, ranked by value per square metre. Prices are shown in US dollars,
+      converted from the dong figure on the ad, which is kept alongside.</p>
   </header>
 
   <section class="filters" aria-label="Filters">
@@ -236,9 +236,16 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
   // District names are long; the ward prefix carries no information here.
   var shortDist=function(d){return (d||"").replace(/^(Quận|Huyện)\s+/,"");};
-  var trieu=function(r){
+  // Dollars lead, because that is what the whole board compares in. The dong
+  // figure stays alongside: it is the number on the ad and the one a landlord
+  // will talk about.
+  var dong=function(r){
     if(r.cur==="VND"&&r.raw) return (r.raw/1e6).toFixed(1).replace(/\.0$/,"")+" tr";
-    return r.p!=null?usd(r.p):"—";
+    return "";
+  };
+  var both=function(r){
+    var d=dong(r);
+    return (r.p!=null?usd(r.p):"—")+(d?" ("+d+")":"");
   };
   var KINDS=[["apartment","Apartment"],["house","House"],["room","Room"]];
 
@@ -393,7 +400,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       var c=el("circle",{cx:sx(r.a),cy:sy(r.p),r:2.4,
         fill:good?"var(--amber)":"var(--blue)","fill-opacity":.6,
         stroke:"var(--surface)","stroke-width":.5});
-      c.appendChild(el("title",{})).textContent=trieu(r)+" · "+Math.round(r.a)+" m²"+
+      c.appendChild(el("title",{})).textContent=both(r)+" · "+Math.round(r.a)+" m²"+
         (r.ppm?" · $"+r.ppm.toFixed(1)+"/m²":"")+(r.dist?" · "+shortDist(r.dist):"");
       svg.appendChild(c);
     });
@@ -412,7 +419,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
 
     $("tiles").innerHTML="";
     [["Listings",rows.length.toLocaleString("en-US"),"of "+ALL.length.toLocaleString("en-US")+" in Da Nang"],
-     ["Median rent",mid!=null?(mid*25500/1e6).toFixed(1)+" tr":"—",mid!=null?usd(mid)+" a month":"—"],
+     ["Median rent",mid!=null?usd(mid):"—",
+      mid!=null?(mid*25500/1e6).toFixed(1)+" tr a month":"—"],
      ["Median size",ar.length?Math.round(median(ar))+" m²":"—",ar.length+" give a size"],
      ["Median $/m²",pp.length?"$"+median(pp).toFixed(1):"—",pp.length+" with both"]
     ].forEach(function(t){
@@ -446,9 +454,9 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       b.innerHTML='<span class="price"></span><span class="spec"></span>'+
                   '<span class="loc"></span><span class="flags"></span><span class="date"></span>';
       b.querySelector(".price").innerHTML='<span></span><span class="usd"></span>';
-      b.querySelector(".price>span").textContent=trieu(r);
-      b.querySelector(".usd").textContent=(r.p!=null?usd(r.p):"")+
-        (r.ppm?"  ·  $"+r.ppm.toFixed(1)+"/m²":"");
+      b.querySelector(".price>span").textContent=r.p!=null?usd(r.p):"—";
+      b.querySelector(".usd").textContent=[dong(r),
+        r.ppm?"$"+r.ppm.toFixed(1)+"/m²":null].filter(Boolean).join("  ·  ");
       b.querySelector(".spec").textContent=spec;
       b.querySelector(".loc").textContent=[r.loc,shortDist(r.dist)].filter(Boolean).join(" · ")||"—";
       b.querySelector(".flags").textContent=[r.cx||null,r.sv?"sea view":null,
