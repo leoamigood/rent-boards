@@ -28,6 +28,8 @@ for (const dir of boards) {
                         { runScripts: "outside-only", pretendToBeVisual: true });
   const w = dom.window;
   w.onerror = (m) => errors.push(String(m));
+  let scrolls = 0;
+  w.Element.prototype.scrollIntoView = function () { scrolls++; };
   try {
     w.eval(data);
     for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) w.eval(m[1]);
@@ -35,12 +37,33 @@ for (const dir of boards) {
     errors.push(`${e.name}: ${e.message}`);
   }
   const doc = w.document;
+
+  // Moving a filter must not drag the page around. render() runs on every
+  // slider step and keystroke, and a stale "scroll to this row" in there once
+  // yanked the view down to the listings on every tick of a drag.
+  const dot = doc.querySelector("#map circle[style]");
+  if (dot) dot.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+  const settled = scrolls;
+  const slider = doc.getElementById("maxp");
+  if (slider) {
+    for (let i = 0; i < 10; i++) {
+      slider.value = String(Number(slider.value) - Number(slider.step || 1));
+      slider.dispatchEvent(new w.Event("input", { bubbles: true }));
+    }
+  }
+  const q = doc.getElementById("q");
+  if (q) { q.value = "a"; q.dispatchEvent(new w.Event("input", { bubbles: true })); }
+  if (scrolls > settled) {
+    errors.push(`page scrolled ${scrolls - settled}x while filtering`);
+  }
+
   const rows = doc.querySelectorAll("#rows .row").length;
   const tiles = doc.querySelectorAll("#tiles .tile").length;
   const ok = !errors.length && rows > 0 && tiles > 0;
   if (!ok) failed++;
   console.log(`${ok ? "ok  " : "FAIL"} ${dir.padEnd(14)} listings=${String(rows).padStart(3)} `
-            + `tiles=${tiles} chips=${doc.querySelectorAll(".chip").length}`);
+            + `tiles=${tiles} chips=${String(doc.querySelectorAll(".chip").length).padStart(2)} `
+            + `scrolls-while-filtering=${scrolls - settled}`);
   errors.forEach((e) => console.log(`       ${e}`));
 }
 process.exit(failed ? 1 : 0);

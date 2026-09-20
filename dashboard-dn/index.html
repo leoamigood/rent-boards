@@ -324,7 +324,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
 
   var state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
-             sort:"ppm",from:DMIN,to:DMAX,focus:null};
+             sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false};
   ["from","to"].forEach(function(id){var i=$(id);i.min=DMIN;i.max=DMAX;i.value=state[id];});
 
   var cityCounts={};
@@ -692,6 +692,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   // instead of hunting for a row that was never rendered.
   function openListing(id){
     state.focus=id;
+    state.reveal=true;      // scroll once, for this click only
     render();
   }
 
@@ -829,7 +830,13 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         note.className="focusnote"; note.textContent=" · from map";
         fb.querySelector(".flags").appendChild(note);
         if(!(fb.nextElementSibling&&fb.nextElementSibling.className==="detail")) fb.click();
-        fb.scrollIntoView({block:"center",behavior:"smooth"});
+        // Only when the click that set it asked for it. render() runs on every
+        // keystroke and every step of a slider drag, and scrolling on each one
+        // drags the page out from under whatever control you are using.
+        if(state.reveal){
+          fb.scrollIntoView({block:"center",behavior:"smooth"});
+          state.reveal=false;
+        }
       }
     }
     $("hint").textContent=rows.length>visible.length
@@ -888,7 +895,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("mina").addEventListener("input",function(e){state.mina=+e.target.value;syncLabels();render();});
   $("reset").addEventListener("click",function(){
     state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
-           sort:"ppm",from:DMIN,to:DMAX,focus:null};
+           sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false};
     buildDistricts();
     $("q").value="";$("sort").value="ppm";$("maxp").value=3000;$("mina").value=0;
     document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
