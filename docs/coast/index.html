@@ -170,6 +170,13 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         <span class="lbl">Bedrooms</span>
         <div class="chips" id="beds"></div>
       </div>
+      <div class="field">
+        <span class="lbl">Value per m²</span>
+        <div class="chips" id="value">
+          <button class="chip" type="button" data-value="good" aria-pressed="false">Better than median</button>
+          <button class="chip" type="button" data-value="above" aria-pressed="false">At or above median</button>
+        </div>
+      </div>
     </div>
     <div class="frow">
       <div class="field">
@@ -325,7 +332,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
 
   var state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
-             sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false,highlight:null};
+             sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false,highlight:null,
+             value:""};
   ["from","to"].forEach(function(id){var i=$(id);i.min=DMIN;i.max=DMAX;i.value=state[id];});
 
   var cityCounts={};
@@ -577,8 +585,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     var anchors=anchorsFor(shown.length>=3?shown:geo, mapProj);
     var hit={};
     matched.forEach(function(r){hit[r.id]=1;});
-    var pp=matched.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
-    var med=median(pp);
+    var med=curMed;
 
     // context first, so the current selection sits on top of it
     var dim=el("g",{});
@@ -669,8 +676,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     if(!lmap) return;
     llayer.clearLayers();
     lmarkers={};
-    var pp=matched.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
-    var med=median(pp);
+    var med=curMed;
     var css=getComputedStyle(document.documentElement);
     var blue=css.getPropertyValue("--blue").trim()||"#1D6FB8";
     var amber=css.getPropertyValue("--amber").trim()||"#B5651A";
@@ -711,8 +717,12 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     var ink=css.getPropertyValue("--ink").trim()||"#141A22";
     Object.keys(lmarkers).forEach(function(key){
       var mk=lmarkers[key], on=String(key)===String(state.highlight);
-      mk.setStyle({radius:on?9:5, weight:on?3:1, color:on?ink:"#fff",
-                   opacity:on?1:.85, fillOpacity:on?1:.85});
+      mk.setStyle({weight:on?3:1, color:on?ink:"#fff",
+                   opacity:1, fillOpacity:on?1:.85});
+      // setStyle carries every option except the one that matters here: a
+      // CircleMarker's drawn radius is only recomputed by setRadius, so
+      // passing radius above changes the option and nothing on screen.
+      mk.setRadius(on?9:5);
       if(on){
         mk.bringToFront();
         if(!lmap.getBounds().contains(mk.getLatLng())) lmap.panTo(mk.getLatLng());
@@ -766,8 +776,18 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       });
   }
 
+  var curMed=null;          // median $/m² of the selection before the value split
+
   function render(){
-    var rows=ALL.filter(passes).sort(SORTS[state.sort]);
+    var base=ALL.filter(passes).sort(SORTS[state.sort]);
+    // The median is taken before the value filter is applied, or filtering to
+    // "better than median" would just recompute a new median and keep halving.
+    curMed=median(base.map(function(r){return r.ppm;})
+                      .filter(function(v){return v!=null;}));
+    var rows=!state.value?base:base.filter(function(r){
+      if(r.ppm==null||curMed==null) return false;
+      return state.value==="good"?r.ppm<curMed:r.ppm>=curMed;
+    });
     var pr=rows.map(function(r){return r.p;}).filter(function(v){return v!=null;});
     var ar=rows.map(function(r){return r.a;}).filter(function(v){return v!=null;});
     var pp=rows.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
@@ -807,7 +827,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       e.textContent="Nothing matches. Try raising the budget or clearing the district chips.";
       host.appendChild(e);$("hint").textContent="";return;
     }
-    var medPpm=median(pp);
+    var medPpm=curMed;
     var visible=rows.slice(0,400);
     if(state.focus!=null){
       var picked=null;
@@ -901,6 +921,17 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     Array.prototype.forEach.call($("periods").children,function(c){
       c.setAttribute("aria-pressed",String(c===chip));});
   }
+  // Exclusive pair: the two halves of the split are mutually exclusive.
+  $("value").addEventListener("click",function(e){
+    var b=e.target.closest(".chip"); if(!b) return;
+    var on=b.getAttribute("aria-pressed")==="true";
+    state.value=on?"":b.dataset.value;
+    Array.prototype.forEach.call(this.children,function(c){
+      c.setAttribute("aria-pressed",String(!on&&c===b));
+    });
+    render();
+  });
+
   $("cities").addEventListener("click",function(e){
     var b=e.target.closest(".chip"); if(!b) return;
     var on=b.getAttribute("aria-pressed")==="true";
@@ -940,11 +971,12 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("mina").addEventListener("input",function(e){state.mina=+e.target.value;syncLabels();render();});
   $("reset").addEventListener("click",function(){
     state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
-           sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false,highlight:null};
+           sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false,highlight:null,
+             value:""};
     buildDistricts();
     $("q").value="";$("sort").value="ppm";$("maxp").value=3000;$("mina").value=0;
     document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
-    markPeriod($("periods").firstElementChild);syncLabels();render();
+    markPeriod($("periods").firstElementChild);buildDistricts();syncLabels();render();
   });
 
   if(window.L && $("mapbox")) initLeaflet();

@@ -12,6 +12,7 @@
 const fs = require("fs");
 const path = require("path");
 const { JSDOM } = require("jsdom");
+const attachLeaflet = require("./leaflet_stub.js");
 
 const boards = process.argv.slice(2);
 if (!boards.length) {
@@ -30,6 +31,10 @@ for (const dir of boards) {
   w.onerror = (m) => errors.push(String(m));
   let scrolls = 0;
   w.Element.prototype.scrollIntoView = function () { scrolls++; };
+  w.matchMedia = () => ({ matches: false, addEventListener() {}, addListener() {} });
+  // The hosted build runs Leaflet; jsdom has none, so without a stand-in the
+  // whole map path goes untested — and it is where the last two bugs lived.
+  const lcalls = attachLeaflet(w);
   try {
     w.eval(data);
     for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) w.eval(m[1]);
@@ -57,13 +62,33 @@ for (const dir of boards) {
     errors.push(`page scrolled ${scrolls - settled}x while filtering`);
   }
 
+  // Selecting a listing must visibly mark its marker. Radius is the trap:
+  // Leaflet only redraws it via setRadius, so setStyle({radius}) is silent.
+  let marked = null;
+  if (lcalls.markers.length) {
+    const listings = w.LISTINGS || [];
+    const row = [...doc.querySelectorAll("#rows .row")].find((b) => {
+      const r = listings.find((x) => String(x.id) === String(b.dataset.id));
+      return r && r.lat && r.lon;
+    });
+    if (row) {
+      row.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+      marked = lcalls.markers.filter((m) => m.drawnRadius > 5).length;
+      if (marked !== 1) errors.push(`selecting a listing marked ${marked} markers, want 1`);
+      row.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
+      const left = lcalls.markers.filter((m) => m.drawnRadius > 5).length;
+      if (left !== 0) errors.push(`${left} markers stayed marked after deselect`);
+    }
+  }
+
   const rows = doc.querySelectorAll("#rows .row").length;
   const tiles = doc.querySelectorAll("#tiles .tile").length;
   const ok = !errors.length && rows > 0 && tiles > 0;
   if (!ok) failed++;
   console.log(`${ok ? "ok  " : "FAIL"} ${dir.padEnd(14)} listings=${String(rows).padStart(3)} `
             + `tiles=${tiles} chips=${String(doc.querySelectorAll(".chip").length).padStart(2)} `
-            + `scrolls-while-filtering=${scrolls - settled}`);
+            + `scrolls-while-filtering=${scrolls - settled}`
+            + (marked === null ? "" : ` map-highlight=ok`));
   errors.forEach((e) => console.log(`       ${e}`));
 }
 process.exit(failed ? 1 : 0);
