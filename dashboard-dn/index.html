@@ -1,4 +1,4 @@
-<title>Da Nang Rent Board</title>
+<title>Vietnam Coast Rentals</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!--LEAFLET-->
@@ -139,14 +139,19 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
 <div class="wrap">
   <header class="masthead">
     <p class="eyebrow" id="provenance">loading…</p>
-    <h1>Da Nang Rent Board</h1>
-    <p class="standfirst">Every apartment, house and room listed for rent in Da Nang
-      on Nhatot and muaban.net, ranked by value per square metre. Prices are shown in US dollars,
-      converted from the dong figure on the ad, which is kept alongside.</p>
+    <h1>Vietnam Coast Rentals</h1>
+    <p class="standfirst">Apartments, houses and rooms for rent in Da Nang, Nha Trang
+      and Hoi An, from Nhatot and muaban.net, ranked by value per square metre.
+      Prices are shown in US dollars, converted from the dong figure on the ad,
+      which is kept alongside.</p>
   </header>
 
   <section class="filters" aria-label="Filters">
     <div class="frow" style="grid-template-columns:1fr">
+      <div class="field">
+        <span class="lbl">City</span>
+        <div class="chips" id="cities"></div>
+      </div>
       <div class="field">
         <span class="lbl">District</span>
         <div class="chips" id="dists"></div>
@@ -318,19 +323,42 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   function shiftDays(iso,n){var d=new Date(iso+"T00:00:00Z");
     d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
 
-  var state={dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",
-             from:DMIN,to:DMAX,focus:null};
+  var state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
+             sort:"ppm",from:DMIN,to:DMAX,focus:null};
   ["from","to"].forEach(function(id){var i=$(id);i.min=DMIN;i.max=DMAX;i.value=state[id];});
 
-  var counts={};
-  ALL.forEach(function(r){if(r.dist)counts[r.dist]=(counts[r.dist]||0)+1;});
-  Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];}).forEach(function(d){
-    var b=document.createElement("button");
-    b.type="button";b.className="chip";b.setAttribute("aria-pressed","false");
-    b.dataset.dist=d;b.innerHTML='<span></span><span class="n"></span>';
-    b.firstChild.textContent=shortDist(d);b.lastChild.textContent=counts[d];
-    $("dists").appendChild(b);
-  });
+  var cityCounts={};
+  ALL.forEach(function(r){if(r.city)cityCounts[r.city]=(cityCounts[r.city]||0)+1;});
+  Object.keys(cityCounts).sort(function(a,b){return cityCounts[b]-cityCounts[a];})
+    .forEach(function(c){
+      var b=document.createElement("button");
+      b.type="button";b.className="chip";b.setAttribute("aria-pressed","false");
+      b.dataset.city=c;b.innerHTML='<span></span><span class="n"></span>';
+      b.firstChild.textContent=c;b.lastChild.textContent=cityCounts[c];
+      $("cities").appendChild(b);
+    });
+
+  // Districts belong to cities, so the list only shows those in play.
+  function buildDistricts(){
+    var picked=Object.keys(state.city).filter(function(k){return state.city[k];});
+    var counts={};
+    ALL.forEach(function(r){
+      if(!r.dist) return;
+      if(picked.length && picked.indexOf(r.city)<0) return;
+      counts[r.dist]=(counts[r.dist]||0)+1;
+    });
+    var host=$("dists"); host.innerHTML="";
+    Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];})
+      .forEach(function(d){
+        var b=document.createElement("button");
+        b.type="button";b.className="chip";
+        b.setAttribute("aria-pressed",String(!!state.dist[d]));
+        b.dataset.dist=d;b.innerHTML='<span></span><span class="n"></span>';
+        b.firstChild.textContent=shortDist(d);b.lastChild.textContent=counts[d];
+        host.appendChild(b);
+      });
+  }
+  buildDistricts();
   KINDS.forEach(function(p){
     var n=ALL.filter(function(r){return r.kind===p[0];}).length;
     if(!n)return;
@@ -360,6 +388,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     if(state.to&&r.d>state.to) return false;
     if(state.maxp<3000&&!(r.p!=null&&r.p<=state.maxp)) return false;
     if(state.mina>0&&!(r.a!=null&&r.a>=state.mina)) return false;
+    var cs=Object.keys(state.city).filter(function(k){return state.city[k];});
+    if(cs.length&&cs.indexOf(r.city)<0) return false;
     var ds=Object.keys(state.dist).filter(function(k){return state.dist[k];});
     if(ds.length&&ds.indexOf(r.dist)<0) return false;
     var ks=Object.keys(state.kind).filter(function(k){return state.kind[k];});
@@ -490,45 +520,50 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   // while you filter.
   var MAPW=560, MAPH=480, MAPPAD=26;
   var geo=ALL.filter(function(r){return r.lat&&r.lon;});
-  var mapProj=null;
-  if(geo.length>20){
-    var la=geo.map(function(r){return r.lat;}).sort(function(a,b){return a-b;});
-    var lo=geo.map(function(r){return r.lon;}).sort(function(a,b){return a-b;});
+
+  // The frame follows the selection. With one city a fixed frame was steadier,
+  // but these three sit hundreds of kilometres apart, so a frame covering all
+  // of them would render each as an unreadable speck.
+  function projectionFor(points){
+    if(points.length<3) return null;
+    var la=points.map(function(r){return r.lat;}).sort(function(a,b){return a-b;});
+    var lo=points.map(function(r){return r.lon;}).sort(function(a,b){return a-b;});
     var q=function(v,f){return v[Math.min(Math.floor(v.length*f),v.length-1)];};
     var la0=q(la,.005), la1=q(la,.995), lo0=q(lo,.005), lo1=q(lo,.995);
-    var kx=Math.cos((la0+la1)/2*Math.PI/180);          // longitude shrinks with latitude
+    if(la1-la0<1e-4){la0-=5e-4;la1+=5e-4;}
+    if(lo1-lo0<1e-4){lo0-=5e-4;lo1+=5e-4;}
+    var kx=Math.cos((la0+la1)/2*Math.PI/180);
     var spanX=(lo1-lo0)*kx, spanY=(la1-la0);
     var scale=Math.min((MAPW-2*MAPPAD)/spanX,(MAPH-2*MAPPAD)/spanY);
     var offX=(MAPW-spanX*scale)/2, offY=(MAPH-spanY*scale)/2;
-    mapProj={
+    return {
       x:function(lon){return offX+(lon-lo0)*kx*scale;},
       y:function(lat){return offY+(la1-lat)*scale;},
-      // A few ads are geocoded to Hanoi or Saigon by mistake. They survive the
-      // country-wide sanity check but land thousands of units off-canvas, and
-      // the svg does not clip, so they would paint over the page.
       inside:function(x,y){return x>=-2&&x<=MAPW+2&&y>=-2&&y<=MAPH+2;},
-      scale:scale, la0:la0, la1:la1, lo0:lo0, lo1:lo1
+      scale:scale
     };
   }
 
-  // District anchors: the median point of each district's own listings.
-  var anchors=[];
-  if(mapProj){
-    var byDist={};
-    geo.forEach(function(r){if(r.dist)(byDist[r.dist]=byDist[r.dist]||[]).push(r);});
-    Object.keys(byDist).forEach(function(d){
-      var g=byDist[d];
-      if(g.length<12) return;
-      anchors.push({d:d,n:g.length,
+  function anchorsFor(points, proj){
+    var byDist={}, out=[];
+    points.forEach(function(r){if(r.dist)(byDist[r.dist]=byDist[r.dist]||[]).push(r);});
+    Object.keys(byDist).forEach(function(dname){
+      var g=byDist[dname];
+      if(g.length<8) return;
+      out.push({d:dname,n:g.length,
         lat:median(g.map(function(r){return r.lat;})),
         lon:median(g.map(function(r){return r.lon;}))});
     });
+    return out;
   }
 
   function drawMap(matched){
     var svg=$("map"); clear(svg);
-    if(!mapProj){svg.appendChild(txt(MAPW/2,MAPH/2,"No coordinates in this data",
+    var shown=matched.filter(function(r){return r.lat&&r.lon;});
+    var mapProj=projectionFor(shown.length>=3?shown:geo);
+    if(!mapProj){svg.appendChild(txt(MAPW/2,MAPH/2,"No coordinates in this selection",
       {anchor:"middle",size:10}));return;}
+    var anchors=anchorsFor(shown.length>=3?shown:geo, mapProj);
     var hit={};
     matched.forEach(function(r){hit[r.id]=1;});
     var pp=matched.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
@@ -592,7 +627,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   // Carto's tiles are blocked inside the artifact sandbox along with every
   // other third-party image, so Leaflet is only present in the hosted build.
   // Same data, same colours, same click-through either way.
-  var lmap=null, llayer=null, lfitted=false;
+  var lmap=null, llayer=null, lastFit="";
 
   function initLeaflet(){
     var box=$("mapbox");
@@ -632,9 +667,13 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         .on("click",function(){openListing(r.id);})
         .addTo(llayer);
     });
-    if(pts.length && !lfitted){
-      lmap.fitBounds(L.latLngBounds(pts).pad(0.06));
-      lfitted=true;
+    // Refit only when the cities on show change, so ordinary filtering does
+    // not yank the map around under the pointer.
+    var key=Object.keys(matched.reduce(function(a,r){
+      if(r.city) a[r.city]=1; return a;}, {})).sort().join("|");
+    if(pts.length && key!==lastFit){
+      lmap.fitBounds(L.latLngBounds(pts).pad(0.08));
+      lastFit=key;
     }
   }
 
@@ -794,6 +833,14 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     Array.prototype.forEach.call($("periods").children,function(c){
       c.setAttribute("aria-pressed",String(c===chip));});
   }
+  $("cities").addEventListener("click",function(e){
+    var b=e.target.closest(".chip"); if(!b) return;
+    var on=b.getAttribute("aria-pressed")==="true";
+    b.setAttribute("aria-pressed",String(!on));
+    state.city[b.dataset.city]=!on;
+    state.dist={};                       // districts of a deselected city make no sense
+    buildDistricts(); render();
+  });
   [["dists","dist"],["kinds","kind"],["srcs","src"],["beds","bed"]].forEach(function(p){
     $(p[0]).addEventListener("click",function(e){
       var b=e.target.closest(".chip");if(!b)return;
@@ -824,8 +871,9 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("maxp").addEventListener("input",function(e){state.maxp=+e.target.value;syncLabels();render();});
   $("mina").addEventListener("input",function(e){state.mina=+e.target.value;syncLabels();render();});
   $("reset").addEventListener("click",function(){
-    state={dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",
-           from:DMIN,to:DMAX,focus:null};
+    state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
+           sort:"ppm",from:DMIN,to:DMAX,focus:null};
+    buildDistricts();
     $("q").value="";$("sort").value="ppm";$("maxp").value=3000;$("mina").value=0;
     document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
     markPeriod($("periods").firstElementChild);syncLabels();render();

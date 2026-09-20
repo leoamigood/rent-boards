@@ -32,9 +32,15 @@ try:
 except ImportError:                                  # pragma: no cover
     _SSL = ssl.create_default_context()
 
-REGIONS = {"danang": ("da-nang", "Da Nang"), "hanoi": ("ha-noi", "Hanoi"),
-           "hcmc": ("tp-ho-chi-minh", "Ho Chi Minh"),
-           "nhatrang": ("khanh-hoa", "Nha Trang")}
+# slug, city label, and the substring a listing's location must contain when
+# the slug covers a whole province rather than the city itself.
+REGIONS: dict[str, tuple[str, str, str | None]] = {
+    "danang":   ("da-nang", "Da Nang", None),
+    "hanoi":    ("ha-noi", "Hanoi", None),
+    "hcmc":     ("tp-ho-chi-minh", "Ho Chi Minh", None),
+    "nhatrang": ("khanh-hoa", "Nha Trang", "Nha Trang"),
+    "hoian":    ("quang-nam", "Hoi An", "Hội An"),
+}
 
 _NEXT = re.compile(r'id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 _AREA = re.compile(r"([\d.,]+)\s*m²")
@@ -90,7 +96,7 @@ def iter_listings(region: str, limit: int | None = None, max_pages: int = 130,
     stock — which is exactly what happened with the portal tried before this
     one, where page 40 was still returning 2023 listings.
     """
-    slug, city = REGIONS[region]
+    slug, city, area_match = REGIONS[region]
     seen: set[int] = set()
     got = 0
     for page in range(1, max_pages + 1):
@@ -122,6 +128,8 @@ def iter_listings(region: str, limit: int | None = None, max_pages: int = 130,
                     page_newest = posted
             except (KeyError, TypeError, ValueError):
                 page_newest = page_newest or datetime.now(timezone.utc)
+            if area_match and area_match not in (it.get("location") or ""):
+                continue
             kind = _kind(it.get("category_name", ""))
             if residential_only and kind not in RESIDENTIAL:
                 continue

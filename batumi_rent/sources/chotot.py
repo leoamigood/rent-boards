@@ -34,12 +34,19 @@ try:
 except ImportError:                                  # pragma: no cover
     _SSL = ssl.create_default_context()
 
-# region_v2 codes, discovered from the API's own responses.
-REGIONS = {
-    "danang": (3017, "Da Nang"),
-    "hanoi": (12000, "Hanoi"),
-    "hcmc": (13000, "Ho Chi Minh"),
-    "nhatrang": (3020, "Nha Trang"),
+# region_v2 codes, read off the API's own /chapy-pro/regions list. The code is
+# zone + province, so Da Nang (province 17, zone 3) is 3017 and Khanh Hoa
+# (province 44, zone 7) is 7044.
+#
+# Chotot regions are provinces, but Nha Trang and Hoi An are cities inside one,
+# so those carry a district filter — without it a search for Nha Trang also
+# returns Cam Ranh and the rest of Khanh Hoa.
+REGIONS: dict[str, tuple[int, str, str | None]] = {
+    "danang":   (3017, "Da Nang", None),
+    "hanoi":    (12000, "Hanoi", None),
+    "hcmc":     (13000, "Ho Chi Minh", None),
+    "nhatrang": (7044, "Nha Trang", "Nha Trang"),
+    "hoian":    (3016, "Hoi An", "Hội An"),
 }
 
 # Residential rental categories. Offices (1030) are deliberately left out.
@@ -63,7 +70,7 @@ def _get(params: dict[str, Any]) -> dict[str, Any]:
 def iter_ads(region: str, limit: int | None = None,
              categories: tuple[int, ...] = tuple(CATEGORIES)) -> Iterator[dict[str, Any]]:
     """Yield rental ads for a region, newest first, one page at a time."""
-    region_id, _ = REGIONS[region]
+    region_id, city, area_match = REGIONS[region]
     seen = 0
     for cg in categories:
         offset = 0
@@ -74,7 +81,10 @@ def iter_ads(region: str, limit: int | None = None,
             if not ads:
                 break
             for ad in ads:
+                if area_match and area_match not in (ad.get("area_name") or ""):
+                    continue
                 ad["_category_kind"] = CATEGORIES.get(cg, "other")
+                ad["_city"] = city
                 yield ad
                 seen += 1
                 if limit and seen >= limit:
@@ -113,7 +123,7 @@ def _keep(ad: dict[str, Any]) -> dict[str, Any]:
     fields = ("list_id", "price", "is_price_not_valid", "size", "rooms",
               "area_name", "ward_name", "street_name", "pty_project_name",
               "region_name", "category", "category_name", "_category_kind",
-              "latitude", "longitude", "type")
+              "_city", "latitude", "longitude", "type")
     out = {k: ad.get(k) for k in fields if ad.get(k) not in (None, "")}
     out["_src"] = "chotot"
     return out
@@ -125,9 +135,10 @@ def listing_fields(raw: dict[str, Any], vnd_per_usd: float) -> dict[str, Any]:
     Only values that survive a sanity check are returned; posters mistype the
     size often enough that a 2-bedroom flat can claim 632 m².
     """
-    out: dict[str, Any] = {"deal_type": "rent_offer", "city": "Da Nang",
+    out: dict[str, Any] = {"deal_type": "rent_offer",
+                           "city": raw.get("_city") or "Da Nang",
                            "kind": raw.get("_category_kind")}
-    if raw.get("region_name"):
+    if not raw.get("_city") and raw.get("region_name"):
         out["city"] = {"Đà Nẵng": "Da Nang", "Hà Nội": "Hanoi",
                        "Tp Hồ Chí Minh": "Ho Chi Minh",
                        "Khánh Hòa": "Nha Trang"}.get(raw["region_name"],
