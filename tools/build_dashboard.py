@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -45,6 +46,41 @@ def scrub(text: str) -> str:
     def hide(m: re.Match[str]) -> str:
         return "[contact hidden]" if sum(c.isdigit() for c in m.group(0)) >= 9 else m.group(0)
     return _HANDLE.sub("[handle hidden]", _DIGIT_RUN.sub(hide, text))
+
+
+KM_PER_DEGREE = 111.32
+MAX_KM_FROM_CITY = 40.0
+
+
+def drop_stray_coordinates(rows: list[dict]) -> None:
+    """Blank coordinates that fall nowhere near the city they claim.
+
+    Some ads are geocoded to another city entirely — a Da Nang listing landing
+    in Hanoi, 600km away. They pass a country-wide sanity check, drag the map
+    frame open and make a district's footprint meaningless. The listing itself
+    is fine, so only its position is dropped.
+    """
+    from statistics import median
+
+    by_city: dict[str, list[dict]] = {}
+    for r in rows:
+        if r.get("lat") and r.get("lon") and r.get("city"):
+            by_city.setdefault(r["city"], []).append(r)
+
+    dropped = 0
+    for city, group in by_city.items():
+        lat0 = median(r["lat"] for r in group)
+        lon0 = median(r["lon"] for r in group)
+        scale = math.cos(math.radians(lat0))
+        for r in group:
+            dy = (r["lat"] - lat0) * KM_PER_DEGREE
+            dx = (r["lon"] - lon0) * KM_PER_DEGREE * scale
+            if math.hypot(dx, dy) > MAX_KM_FROM_CITY:
+                r["lat"] = r["lon"] = None
+                dropped += 1
+    if dropped:
+        print(f"  dropped {dropped} coordinates more than "
+              f"{MAX_KM_FROM_CITY:.0f} km from their city")
 
 
 def main() -> int:
@@ -111,6 +147,8 @@ def main() -> int:
             "txt": text[:TEXT_LIMIT] + ("…" if len(text) > TEXT_LIMIT else ""),
             "url": r["link"],
         })
+
+    drop_stray_coordinates(out)
 
     span = conn.execute("SELECT MIN(date_utc) a, MAX(date_utc) b FROM messages").fetchone()
     meta = {

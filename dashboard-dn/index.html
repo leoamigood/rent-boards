@@ -239,8 +239,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         <span class="lg"><span class="dot" style="background:var(--amber)"></span>better value than median</span>
         <span class="lg"><span class="dot" style="background:var(--blue)"></span>at or above median</span>
         <span class="lg"><span class="dot" style="background:var(--line-strong)"></span>filtered out</span>
-        <span class="lg" id="hullnote" hidden>dashed outline: where the selected
-          district's listings sit, not an official boundary</span>
+        <span class="lg" id="hullnote" hidden>dashed outline: the area covering
+          95% of the selected district's listings — not an administrative boundary</span>
       </div>
     </figure>
     <aside class="mapkey">
@@ -569,6 +569,24 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     return hull.length>=3?hull:null;
   }
 
+  // A convex hull is only as tight as its furthest point, so the outermost
+  // few per cent are dropped first — one ad pinned on the wrong side of a
+  // river would otherwise stretch the shape across it.
+  var HULL_MIN_POINTS=8, HULL_KEEP=0.95;
+
+  function trimOutliers(pts){
+    if(pts.length<HULL_MIN_POINTS) return pts;
+    var lat0=median(pts.map(function(r){return r.lat;}));
+    var lon0=median(pts.map(function(r){return r.lon;}));
+    var kx=Math.cos(lat0*Math.PI/180);
+    var withD=pts.map(function(r){
+      var dy=(r.lat-lat0)*111.32, dx=(r.lon-lon0)*111.32*kx;
+      return {r:r,d:Math.sqrt(dx*dx+dy*dy)};
+    }).sort(function(a,b){return a.d-b.d;});
+    var keep=Math.max(HULL_MIN_POINTS,Math.floor(withD.length*HULL_KEEP));
+    return withD.slice(0,keep).map(function(x){return x.r;});
+  }
+
   function selectedHulls(matched){
     var picked=Object.keys(state.dist).filter(function(k){return state.dist[k];});
     if(!picked.length) return [];
@@ -576,7 +594,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     picked.forEach(function(name){
       var pts=matched.filter(function(r){
         return r.dist===name&&r.lat&&r.lon;});
-      var h=hullOf(pts);
+      if(pts.length<HULL_MIN_POINTS) return;   // too few to mean anything
+      var h=hullOf(trimOutliers(pts));
       if(h) out.push({name:name,hull:h,n:pts.length});
     });
     return out;
