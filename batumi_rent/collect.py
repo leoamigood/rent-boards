@@ -17,7 +17,7 @@ from telethon import TelegramClient, errors, events, functions
 from telethon.tl.types import Message
 
 from . import db, parser
-from .sources import chotot, mogi
+from .sources import chotot, muaban
 from .config import Config
 
 BATCH = 200
@@ -86,8 +86,8 @@ def listing_row(msg_row: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
             record = {}
         if record.get("_src") == "chotot":
             structured = chotot.listing_fields(record, cfg.vnd_per_usd)
-        elif record.get("_src") == "mogi":
-            structured = mogi.listing_fields(record, cfg.vnd_per_usd)
+        elif record.get("_src") == "muaban":
+            structured = muaban.listing_fields(record, cfg.vnd_per_usd)
 
     if not structured and not parser.is_listing(text):
         return None
@@ -258,20 +258,22 @@ def fetch_chotot(cfg: Config, region: str, limit: int | None = None) -> None:
     conn.close()
 
 
-def fetch_mogi(cfg: Config, region: str, limit: int | None = None) -> None:
-    """Pull rental listings from mogi.vn's public listing pages."""
-    source = f"mogi:{region}"
+def fetch_muaban(cfg: Config, region: str, limit: int | None = None,
+                 max_age_days: int | None = 120) -> None:
+    """Pull rental listings from muaban.net's public listing pages."""
+    source = f"muaban:{region}"
     conn = db.connect(cfg.db_path)
     known = {r[0] for r in conn.execute(
         "SELECT msg_id FROM messages WHERE chat=?", (source,))}
 
-    print(f"Fetching rentals for {region} from mogi.vn"
+    print(f"Fetching rentals for {region} from muaban.net"
           f"{f' (up to {limit})' if limit else ''}...")
     buffer: list[dict[str, Any]] = []
     total = listings = fresh = 0
     try:
-        for item in mogi.iter_listings(region, limit=limit):
-            row = mogi.message_row(item, source)
+        for item in muaban.iter_listings(region, limit=limit,
+                                         max_age_days=max_age_days):
+            row = muaban.message_row(item, source)
             row["raw"] = json.dumps(item, ensure_ascii=False)
             row["fetched_at"] = db.now_utc()
             if row["msg_id"] not in known:

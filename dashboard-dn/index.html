@@ -141,7 +141,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     <p class="eyebrow" id="provenance">loading…</p>
     <h1>Da Nang Rent Board</h1>
     <p class="standfirst">Every apartment, house and room listed for rent in Da Nang
-      on Chotot and mogi.vn, ranked by value per square metre. Prices are shown in US dollars,
+      on Chotot and muaban.net, ranked by value per square metre. Prices are shown in US dollars,
       converted from the dong figure on the ad, which is kept alongside.</p>
   </header>
 
@@ -293,10 +293,10 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     return (r.p!=null?usd(r.p):"—")+(d?" ("+d+")":"");
   };
   var KINDS=[["apartment","Apartment"],["house","House"],["room","Room"]];
-  var SRCS=[["chotot","Chotot"],["mogi","Mogi"]];
+  var SRCS=[["chotot","Chotot"],["muaban","Muaban"]];
 
   var srcNames=(META.sources||[]).map(function(s){
-    return {chotot:"chotot.com",mogi:"mogi.vn"}[s.split(":")[0]]||s.split(":")[0];});
+    return {chotot:"chotot.com",muaban:"muaban.net"}[s.split(":")[0]]||s.split(":")[0];});
   srcNames=srcNames.filter(function(v,i,a){return a.indexOf(v)===i;});
   $("provenance").textContent=(srcNames.join(" + ")||"—")+" · Da Nang · "+
     ALL.length.toLocaleString("en-US")+" distinct listings · "+(META.from||"")+" to "+(META.to||"");
@@ -693,7 +693,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     $("mapcap").textContent=mapped===rows.length
       ? "Each dot is one flat, placed by the ad's own coordinates"
       : mapped.toLocaleString("en-US")+" of "+rows.length.toLocaleString("en-US")+
-        " are mapped — mogi listings carry no coordinates";
+        " are mapped — muaban listings carry no coordinates";
     $("count").textContent=rows.length===ALL.length
       ? "All "+rows.length.toLocaleString("en-US")+" listings"
       : rows.length.toLocaleString("en-US")+" of "+ALL.length.toLocaleString("en-US")+" match";
@@ -732,7 +732,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       b.querySelector(".loc").textContent=[r.loc,shortDist(r.dist)].filter(Boolean).join(" · ")||"—";
       b.querySelector(".flags").textContent=[r.cx||null,r.sv?"sea view":null,
         r.fu===1?"furnished":null,r.np?r.np+" photos":null,
-        r.src==="mogi"?"mogi":null].filter(Boolean).join(" · ");
+        r.src==="muaban"?"muaban":null].filter(Boolean).join(" · ");
       b.querySelector(".date").textContent=r.d.slice(5);
       b.addEventListener("click",function(){
         if(b.nextElementSibling&&b.nextElementSibling.className==="detail"){

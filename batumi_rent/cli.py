@@ -65,12 +65,15 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("join", help="join the chat with the logged-in account")
 
     f = sub.add_parser("fetch", help="download listings (new ones by default)")
-    f.add_argument("--source", choices=["telegram", "chotot", "mogi"],
+    f.add_argument("--source", choices=["telegram", "chotot", "muaban"],
                    default="telegram",
                    help="where to fetch from (default: telegram)")
     f.add_argument("--region", default="danang",
                    help="for --source chotot: danang, hanoi, hcmc, nhatrang")
     f.add_argument("--limit", type=int, help="stop after N messages")
+    f.add_argument("--max-age", type=int, default=120, metavar="DAYS",
+                   help="for web sources: stop paging once listings are older "
+                        "than this (default 120)")
     f.add_argument("--older", action="store_true",
                    help="continue backwards into older history instead of fetching new")
     f.add_argument("--days", type=int, help="stop once posts are older than N days")
@@ -135,8 +138,9 @@ def main(argv: list[str] | None = None) -> int:
         case "fetch":
             if args.source == "chotot":
                 collect.fetch_chotot(cfg, args.region, limit=args.limit)
-            elif args.source == "mogi":
-                collect.fetch_mogi(cfg, args.region, limit=args.limit)
+            elif args.source == "muaban":
+                collect.fetch_muaban(cfg, args.region, limit=args.limit,
+                                     max_age_days=args.max_age)
             else:
                 collect.run(collect.fetch(cfg, limit=args.limit, older=args.older,
                                           since_days=args.days))
