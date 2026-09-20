@@ -324,7 +324,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
 
   var state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
-             sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false};
+             sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false,highlight:null};
   ["from","to"].forEach(function(id){var i=$(id);i.min=DMIN;i.max=DMAX;i.value=state[id];});
 
   var cityCounts={};
@@ -596,9 +596,16 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       var x=mapProj.x(r.lon), y=mapProj.y(r.lat);
       if(!mapProj.inside(x,y)) return;
       var good=med!=null&&r.ppm!=null&&r.ppm<med;
+      var picked=String(r.id)===String(state.highlight);
+      if(picked){
+        live.appendChild(el("circle",{cx:x.toFixed(1),cy:y.toFixed(1),r:7,
+          fill:"none",stroke:"var(--ink)","stroke-width":1.4}));
+      }
       var c=el("circle",{cx:x.toFixed(1),cy:y.toFixed(1),
-        r:2.7,fill:good?"var(--amber)":"var(--blue)","fill-opacity":.72,
-        stroke:"var(--surface)","stroke-width":.5,style:"cursor:pointer"});
+        r:picked?4.2:2.7,fill:good?"var(--amber)":"var(--blue)",
+        "fill-opacity":picked?1:.72,
+        stroke:picked?"var(--ink)":"var(--surface)","stroke-width":picked?1:.5,
+        style:"cursor:pointer"});
       c.appendChild(el("title",{})).textContent=both(r)+
         (r.a?" · "+Math.round(r.a)+" m²":"")+(r.bd!=null?" · "+r.bd+" bed":"")+
         (r.dist?" · "+shortDist(r.dist):"");
@@ -637,7 +644,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   // Carto's tiles are blocked inside the artifact sandbox along with every
   // other third-party image, so Leaflet is only present in the hosted build.
   // Same data, same colours, same click-through either way.
-  var lmap=null, llayer=null, lastFit="";
+  var lmap=null, llayer=null, lastFit="", lmarkers={}, lastRows=[];
 
   function initLeaflet(){
     var box=$("mapbox");
@@ -660,6 +667,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   function drawLeaflet(matched){
     if(!lmap) return;
     llayer.clearLayers();
+    lmarkers={};
     var pp=matched.map(function(r){return r.ppm;}).filter(function(v){return v!=null;});
     var med=median(pp);
     var css=getComputedStyle(document.documentElement);
@@ -670,13 +678,16 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       if(!r.lat||!r.lon) return;
       var good=med!=null&&r.ppm!=null&&r.ppm<med;
       pts.push([r.lat,r.lon]);
-      L.circleMarker([r.lat,r.lon],{radius:5,weight:1,color:"#fff",opacity:.85,
-        fillColor:good?amber:blue,fillOpacity:.85})
+      lmarkers[r.id]=L.circleMarker([r.lat,r.lon],
+        {radius:5,weight:1,color:"#fff",opacity:.85,
+         fillColor:good?amber:blue,fillOpacity:.85})
         .bindTooltip(both(r)+(r.a?" · "+Math.round(r.a)+" m²":"")+
           (r.bd!=null?" · "+r.bd+" bed":""))
         .on("click",function(){openListing(r.id);})
         .addTo(llayer);
     });
+    if(state.highlight!=null) paintHighlight();
+
     // Refit only when the cities on show change, so ordinary filtering does
     // not yank the map around under the pointer.
     var key=Object.keys(matched.reduce(function(a,r){
@@ -690,7 +701,31 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   // The list renders at most 400 rows while the map draws every match, so a
   // marker's listing is usually not among them. Pin the clicked one to the top
   // instead of hunting for a row that was never rendered.
+  // Selecting a row marks its dot, the mirror of clicking a dot to reach the
+  // row. Only pans when the marker is off screen — a map that jumps on every
+  // selection is worse than one you have to glance around.
+  function paintHighlight(){
+    if(!lmap) return;
+    var css=getComputedStyle(document.documentElement);
+    var ink=css.getPropertyValue("--ink").trim()||"#141A22";
+    Object.keys(lmarkers).forEach(function(key){
+      var mk=lmarkers[key], on=String(key)===String(state.highlight);
+      mk.setStyle({radius:on?9:5, weight:on?3:1, color:on?ink:"#fff",
+                   opacity:on?1:.85, fillOpacity:on?1:.85});
+      if(on){
+        mk.bringToFront();
+        if(!lmap.getBounds().contains(mk.getLatLng())) lmap.panTo(mk.getLatLng());
+      }
+    });
+  }
+
+  function highlight(id){
+    state.highlight=id;
+    if(lmap) paintHighlight(); else drawMap(lastRows);
+  }
+
   function openListing(id){
+    state.highlight=id;
     state.focus=id;
     state.reveal=true;      // scroll once, for this click only
     render();
@@ -764,6 +799,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       ? "All "+rows.length.toLocaleString("en-US")+" listings"
       : rows.length.toLocaleString("en-US")+" of "+ALL.length.toLocaleString("en-US")+" match";
 
+    lastRows=rows;
     var host=$("rows");host.innerHTML="";
     if(!rows.length){
       var e=document.createElement("div");e.className="empty";
@@ -802,13 +838,21 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       b.querySelector(".date").textContent=r.d.slice(5);
       b.addEventListener("click",function(){
         if(b.nextElementSibling&&b.nextElementSibling.className==="detail"){
-          b.nextElementSibling.remove();b.setAttribute("aria-expanded","false");return;}
+          b.nextElementSibling.remove();b.setAttribute("aria-expanded","false");
+          highlight(null);
+          return;}
+        highlight(r.lat&&r.lon?r.id:null);
         var d=document.createElement("div");d.className="detail";
         var p=document.createElement("p");p.textContent=r.txt||"(no text)";
         var m=document.createElement("div");m.className="meta";
         var a=document.createElement("a");a.href=r.url;a.target="_blank";
         a.rel="noopener";a.textContent="Open on "+sourceName(r)+" ↗";
         m.appendChild(a);
+        if(!(r.lat&&r.lon)){
+          var nm=document.createElement("span");
+          nm.textContent="no map location";      // muaban ads carry no coordinates
+          m.appendChild(nm);
+        }
         if(r.lat&&r.lon){
           // Works in every host: a plain outbound link, not an embedded map.
           var g=document.createElement("a");
@@ -895,7 +939,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("mina").addEventListener("input",function(e){state.mina=+e.target.value;syncLabels();render();});
   $("reset").addEventListener("click",function(){
     state={city:{},dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",
-           sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false};
+           sort:"ppm",from:DMIN,to:DMAX,focus:null,reveal:false,highlight:null};
     buildDistricts();
     $("q").value="";$("sort").value="ppm";$("maxp").value=3000;$("mina").value=0;
     document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
