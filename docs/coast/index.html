@@ -154,7 +154,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         <span class="lbl">City</span>
         <div class="chips" id="cities"></div>
       </div>
-      <div class="field">
+      <div class="field" id="distfield" hidden>
         <span class="lbl">District</span>
         <div class="chips" id="dists"></div>
       </div>
@@ -339,13 +339,23 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       $("cities").appendChild(b);
     });
 
-  // Districts belong to cities, so the list only shows those in play.
+  // Districts belong to a city. Listing every city's at once is 60-odd chips
+  // of noise, and a district only means something once you have chosen where,
+  // so the row stays hidden until a city is picked.
   function buildDistricts(){
     var picked=Object.keys(state.city).filter(function(k){return state.city[k];});
+    var field=$("distfield");
+    if(!picked.length){
+      field.hidden=true;
+      $("dists").innerHTML="";
+      state.dist={};
+      return;
+    }
+    field.hidden=false;
     var counts={};
     ALL.forEach(function(r){
       if(!r.dist) return;
-      if(picked.length && picked.indexOf(r.city)<0) return;
+      if(picked.indexOf(r.city)<0) return;
       counts[r.dist]=(counts[r.dist]||0)+1;
     });
     var host=$("dists"); host.innerHTML="";
@@ -688,9 +698,15 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
 
   function drawKey(matched){
     var host=$("mapkey"); host.innerHTML="";
+    // Built from the listings themselves, not from the map's labels: those are
+    // local to the map now, and half these listings have no coordinates but do
+    // have a district.
     var counts={};
     matched.forEach(function(r){if(r.dist)(counts[r.dist]=counts[r.dist]||[]).push(r.p);});
-    anchors.slice().sort(function(a,b){return (counts[b.d]||[]).length-(counts[a.d]||[]).length;})
+    Object.keys(counts)
+      .sort(function(x,y){return counts[y].length-counts[x].length;})
+      .slice(0,12)
+      .map(function(d){return {d:d};})
       .forEach(function(a){
         var ps=(counts[a.d]||[]).filter(function(v){return v!=null;});
         var b=document.createElement("button");

@@ -149,6 +149,16 @@ Check parser accuracy against the sample posts any time:
 python tests/test_parser.py
 ```
 
+The boards get their own check. `node --check` only parses; it cannot catch a
+ReferenceError thrown at run time, and one of those once aborted a render
+halfway and shipped a board with charts, a map and no listings. This loads each
+board in jsdom and fails if anything throws or the table comes up empty:
+
+```bash
+npm install jsdom
+node tools/smoke_boards.js dashboard dashboard-vn dashboard-dn
+```
+
 ## Other chats
 
 Each chat gets its own database, and the parser handles more than one market:

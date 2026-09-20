@@ -11,3 +11,8 @@ data/
 dashboard/data.js
 dashboard-vn/data.js
 dashboard-dn/data.js
+
+# jsdom for tools/smoke_boards.js
+node_modules/
+package-lock.json
+package.json
