@@ -141,7 +141,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     <p class="eyebrow" id="provenance">loading…</p>
     <h1>Da Nang Rent Board</h1>
     <p class="standfirst">Every apartment, house and room listed for rent in Da Nang
-      on Chotot and muaban.net, ranked by value per square metre. Prices are shown in US dollars,
+      on Nhatot and muaban.net, ranked by value per square metre. Prices are shown in US dollars,
       converted from the dong figure on the ad, which is kept alongside.</p>
   </header>
 
@@ -293,10 +293,20 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     return (r.p!=null?usd(r.p):"—")+(d?" ("+d+")":"");
   };
   var KINDS=[["apartment","Apartment"],["house","House"],["room","Room"]];
-  var SRCS=[["chotot","Chotot"],["muaban","Muaban"]];
+  var SRCS=[["chotot","Nhatot"],["muaban","Muaban"]];
+  // Named after where the link actually lands, not where the data came from:
+  // Chotot's property listings live on nhatot.com, so a label taken from the
+  // source would send you to a site the button never mentioned.
+  var HOSTNAME={"nhatot.com":"Nhatot","chotot.com":"Chotot",
+                "muaban.net":"Muaban","t.me":"Telegram"};
+  function sourceName(r){
+    var host="";
+    try{ host=new URL(r.url).hostname.replace(/^www\./,""); }catch(e){}
+    return HOSTNAME[host]||host||"the listing";
+  }
 
   var srcNames=(META.sources||[]).map(function(s){
-    return {chotot:"chotot.com",muaban:"muaban.net"}[s.split(":")[0]]||s.split(":")[0];});
+    return {chotot:"nhatot.com",muaban:"muaban.net"}[s.split(":")[0]]||s.split(":")[0];});
   srcNames=srcNames.filter(function(v,i,a){return a.indexOf(v)===i;});
   $("provenance").textContent=(srcNames.join(" + ")||"—")+" · Da Nang · "+
     ALL.length.toLocaleString("en-US")+" distinct listings · "+(META.from||"")+" to "+(META.to||"");
@@ -741,7 +751,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         var p=document.createElement("p");p.textContent=r.txt||"(no text)";
         var m=document.createElement("div");m.className="meta";
         var a=document.createElement("a");a.href=r.url;a.target="_blank";
-        a.rel="noopener";a.textContent="Open on Chotot ↗";m.appendChild(a);
+        a.rel="noopener";a.textContent="Open on "+sourceName(r)+" ↗";
+        m.appendChild(a);
         if(r.lat&&r.lon){
           // Works in every host: a plain outbound link, not an embedded map.
           var g=document.createElement("a");
