@@ -117,6 +117,9 @@ h2{font-family:var(--display);font-weight:600;font-size:20px}
 .row .flags{font-size:12px;color:var(--ink-3);white-space:nowrap}
 .row .date{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);white-space:nowrap}
 .good .price{color:var(--amber-ink)}
+.focusrow{box-shadow:inset 3px 0 0 var(--blue);background:var(--surface-2)}
+.focusnote{font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+           text-transform:uppercase;color:var(--blue-ink)}
 .detail{background:var(--surface-2);padding:14px 16px;border-top:1px dashed var(--line-strong)}
 .detail p{margin:0 0 10px;white-space:pre-wrap;font-size:13px;color:var(--ink-2);
           max-width:72ch;overflow-wrap:anywhere}
@@ -306,7 +309,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
 
   var state={dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",
-             from:DMIN,to:DMAX};
+             from:DMIN,to:DMAX,focus:null};
   ["from","to"].forEach(function(id){var i=$(id);i.min=DMIN;i.max=DMAX;i.value=state[id];});
 
   var counts={};
@@ -625,16 +628,12 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     }
   }
 
+  // The list renders at most 400 rows while the map draws every match, so a
+  // marker's listing is usually not among them. Pin the clicked one to the top
+  // instead of hunting for a row that was never rendered.
   function openListing(id){
-    var host=$("rows");
-    var btn=host.querySelector('[data-id="'+id+'"]');
-    if(!btn){
-      $("hint").textContent="That one is outside the first 400 shown — narrow the filters to reach it";
-      return;
-    }
-    if(!(btn.nextElementSibling&&btn.nextElementSibling.className==="detail")) btn.click();
-    btn.scrollIntoView({block:"center",behavior:"smooth"});
-    btn.focus({preventScroll:true});
+    state.focus=id;
+    render();
   }
 
   function drawKey(matched){
@@ -706,7 +705,16 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       host.appendChild(e);$("hint").textContent="";return;
     }
     var medPpm=median(pp);
-    rows.slice(0,400).forEach(function(r){
+    var visible=rows.slice(0,400);
+    if(state.focus!=null){
+      var picked=null;
+      for(var i=0;i<rows.length;i++){
+        if(rows[i].id===state.focus){picked=rows[i];break;}
+      }
+      if(!picked) state.focus=null;                 // filtered out since the click
+      else if(visible.indexOf(picked)<0) visible=[picked].concat(visible);
+    }
+    visible.forEach(function(r){
       var b=document.createElement("button");
       b.type="button";b.className="row"+(medPpm&&r.ppm!=null&&r.ppm<medPpm?" good":"");
       b.setAttribute("aria-expanded","false");
@@ -747,8 +755,20 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       });
       host.appendChild(b);
     });
-    $("hint").textContent=rows.length>400
-      ? "Showing the first 400 — narrow the filters to see the rest"
+    if(state.focus!=null){
+      var fb=host.querySelector('[data-id="'+state.focus+'"]');
+      if(fb){
+        fb.classList.add("focusrow");
+        var note=document.createElement("span");
+        note.className="focusnote"; note.textContent=" · from map";
+        fb.querySelector(".flags").appendChild(note);
+        if(!(fb.nextElementSibling&&fb.nextElementSibling.className==="detail")) fb.click();
+        fb.scrollIntoView({block:"center",behavior:"smooth"});
+      }
+    }
+    $("hint").textContent=rows.length>visible.length
+      ? "Showing "+visible.length+" of "+rows.length.toLocaleString("en-US")+
+        " — narrow the filters, or click a dot on the map to pull one up"
       : "Select a row to read the original ad";
   }
 
@@ -794,7 +814,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   $("mina").addEventListener("input",function(e){state.mina=+e.target.value;syncLabels();render();});
   $("reset").addEventListener("click",function(){
     state={dist:{},kind:{},src:{},beds:{},maxp:3000,mina:0,q:"",sort:"ppm",
-           from:DMIN,to:DMAX};
+           from:DMIN,to:DMAX,focus:null};
     $("q").value="";$("sort").value="ppm";$("maxp").value=3000;$("mina").value=0;
     document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed","false");});
     markPeriod($("periods").firstElementChild);syncLabels();render();
