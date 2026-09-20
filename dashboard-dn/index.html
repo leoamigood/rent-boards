@@ -1,4 +1,4 @@
-<title>Vietnam Coast Rentals</title>
+<title>Vietnam City Rentals</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!--LEAFLET-->
@@ -139,11 +139,12 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
 <div class="wrap">
   <header class="masthead">
     <p class="eyebrow" id="provenance">loading…</p>
-    <h1>Vietnam Coast Rentals</h1>
-    <p class="standfirst">Apartments, houses and rooms for rent in Da Nang, Nha Trang
-      and Hoi An, from Nhatot and muaban.net, ranked by value per square metre.
-      Prices are shown in US dollars, converted from the dong figure on the ad,
-      which is kept alongside.</p>
+    <h1>Vietnam City Rentals</h1>
+    <p class="standfirst">Apartments, houses and rooms for rent across five Vietnamese
+      cities, from Nhatot and muaban.net, ranked by value per square metre. Prices
+      are in US dollars, converted from the dong figure on the ad, which is kept
+      alongside. Saigon is capped at the newest few thousand; the rest is everything
+      the two sites carry.</p>
   </header>
 
   <section class="filters" aria-label="Filters">
@@ -313,8 +314,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   var srcNames=(META.sources||[]).map(function(s){
     return {chotot:"nhatot.com",muaban:"muaban.net"}[s.split(":")[0]]||s.split(":")[0];});
   srcNames=srcNames.filter(function(v,i,a){return a.indexOf(v)===i;});
-  $("provenance").textContent=(srcNames.join(" + ")||"—")+" · Da Nang · "+
-    ALL.length.toLocaleString("en-US")+" distinct listings · "+(META.from||"")+" to "+(META.to||"");
+  $("provenance").textContent=(srcNames.join(" + ")||"—")+" · "+ALL.length.toLocaleString("en-US")+" distinct listings · "+(META.from||"")+" to "+(META.to||"");
   $("built").textContent="Built "+(META.built||"")+" from "+
     (META.posts||0).toLocaleString("en-US")+" ads.";
 

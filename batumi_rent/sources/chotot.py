@@ -47,6 +47,7 @@ REGIONS: dict[str, tuple[int, str, str | None]] = {
     "hcmc":     (13000, "Ho Chi Minh", None),
     "nhatrang": (7044, "Nha Trang", "Nha Trang"),
     "hoian":    (3016, "Hoi An", "Hội An"),
+    "phuquoc":  (5031, "Phu Quoc", "Phú Quốc"),
 }
 
 # Residential rental categories. Offices (1030) are deliberately left out.
@@ -71,8 +72,10 @@ def iter_ads(region: str, limit: int | None = None,
              categories: tuple[int, ...] = tuple(CATEGORIES)) -> Iterator[dict[str, Any]]:
     """Yield rental ads for a region, newest first, one page at a time."""
     region_id, city, area_match = REGIONS[region]
+    per_category = limit // len(categories) if limit and len(categories) > 1 else limit
     seen = 0
     for cg in categories:
+        taken = 0
         offset = 0
         while True:
             payload = _get({"region_v2": region_id, "cg": cg, "st": "u",
@@ -87,8 +90,13 @@ def iter_ads(region: str, limit: int | None = None,
                 ad["_city"] = city
                 yield ad
                 seen += 1
+                taken += 1
                 if limit and seen >= limit:
                     return
+                if per_category and taken >= per_category:
+                    break
+            if per_category and taken >= per_category:
+                break
             offset += len(ads)
             if offset >= min(payload.get("total") or 0, 9_950):
                 break                       # the API stops paging past ~10k

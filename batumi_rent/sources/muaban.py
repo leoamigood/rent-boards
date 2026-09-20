@@ -37,9 +37,10 @@ except ImportError:                                  # pragma: no cover
 REGIONS: dict[str, tuple[str, str, str | None]] = {
     "danang":   ("da-nang", "Da Nang", None),
     "hanoi":    ("ha-noi", "Hanoi", None),
-    "hcmc":     ("tp-ho-chi-minh", "Ho Chi Minh", None),
+    "hcmc":     ("ho-chi-minh", "Ho Chi Minh", None),
     "nhatrang": ("khanh-hoa", "Nha Trang", "Nha Trang"),
     "hoian":    ("quang-nam", "Hoi An", "Hội An"),
+    "phuquoc":  ("kien-giang", "Phu Quoc", "Phú Quốc"),
 }
 
 _NEXT = re.compile(r'id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)

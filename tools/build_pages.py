@@ -28,7 +28,10 @@ BOARDS = [
     ("dashboard",    "batumi",  "data/rentals.db", "batumiarendachat", []),
     ("dashboard-vn", "vietnam", "data/vietnam.db", "Rent_Vietnam",
      ["--split-cities", "--with-wanted"]),
-    ("dashboard-dn", "danang",  "data/danang.db",  "chotot:danang", []),
+    # Several cities in one database, so the dedupe key must include the city:
+    # without it a $500 two-bed in Da Nang merges with one in Saigon.
+    ("dashboard-dn", "danang",  "data/danang.db",  "chotot:danang",
+     ["--split-cities"]),
 ]
 
 INDEX = """<title>Rent Boards</title>
@@ -53,7 +56,7 @@ span{color:var(--mut);font-size:13.5px}
 <p>Rental listings collected from Telegram chats and Vietnamese classifieds,
 de-duplicated and ranked by value. Contact details are left out of these public
 copies; each listing links back to its original post.</p>
-<a class="card" href="danang/"><b>Vietnam coast</b><span>Da Nang, Nha Trang and Hoi An — apartments, houses and rooms from Nhatot and muaban, on a map</span></a>
+<a class="card" href="danang/"><b>Vietnam cities</b><span>Da Nang, Saigon, Nha Trang, Hoi An and Phu Quoc — from Nhatot and muaban, on a map</span></a>
 <a class="card" href="vietnam/"><b>Vietnam</b><span>Flats offered and wanted across a dozen cities, 14 months</span></a>
 <a class="card" href="batumi/"><b>Batumi</b><span>A week of the Georgian rental chat</span></a>
 </div>
