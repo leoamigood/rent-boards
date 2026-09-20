@@ -30,7 +30,7 @@ BOARDS = [
      ["--split-cities", "--with-wanted"]),
     # Several cities in one database, so the dedupe key must include the city:
     # without it a $500 two-bed in Da Nang merges with one in Saigon.
-    ("dashboard-dn", "danang",  "data/danang.db",  "chotot:danang",
+    ("dashboard-dn", "coast",   "data/danang.db",  "chotot:danang",
      ["--split-cities"]),
 ]
 
@@ -56,10 +56,23 @@ span{color:var(--mut);font-size:13.5px}
 <p>Rental listings collected from Telegram chats and Vietnamese classifieds,
 de-duplicated and ranked by value. Contact details are left out of these public
 copies; each listing links back to its original post.</p>
-<a class="card" href="danang/"><b>Vietnam cities</b><span>Da Nang, Saigon, Nha Trang, Hoi An and Phu Quoc — from Nhatot and muaban, on a map</span></a>
+<a class="card" href="coast/"><b>Vietnam cities</b><span>Da Nang, Saigon, Nha Trang, Hoi An and Phu Quoc — from Nhatot and muaban, on a map</span></a>
 <a class="card" href="vietnam/"><b>Vietnam</b><span>Flats offered and wanted across a dozen cities, 14 months</span></a>
 <a class="card" href="batumi/"><b>Batumi</b><span>A week of the Georgian rental chat</span></a>
 </div>
+"""
+
+
+# Paths that have moved. GitHub Pages serves static files only, so the old
+# location gets a stub that forwards rather than a 404 for anyone holding the
+# earlier link.
+REDIRECTS = {"danang": "coast"}
+
+REDIRECT_PAGE = """<title>Moved</title>
+<link rel="canonical" href="../{to}/">
+<meta http-equiv="refresh" content="0; url=../{to}/">
+<p style="font:15px/1.5 system-ui;margin:3rem">This board moved to
+<a href="../{to}/">/{to}/</a>.</p>
 """
 
 
@@ -82,6 +95,12 @@ def main() -> int:
         page = page.replace("<!--LEAFLET-->", LEAFLET)
         (out / "index.html").write_text(page, encoding="utf-8")
         print(f"  {slug}/  {'with Leaflet' if LEAFLET in page else 'no map'}")
+
+    for old, new in REDIRECTS.items():
+        stub = DOCS / old
+        stub.mkdir(parents=True, exist_ok=True)
+        (stub / "index.html").write_text(REDIRECT_PAGE.format(to=new), encoding="utf-8")
+        print(f"  {old}/ -> {new}/  (redirect)")
 
     total = sum(f.stat().st_size for f in DOCS.rglob("*") if f.is_file())
     print(f"docs/ built — {total // 1024} KB")
