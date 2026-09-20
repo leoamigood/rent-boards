@@ -13,7 +13,7 @@ import re
 import unicodedata
 from typing import Any
 
-PARSER_VERSION = 8
+PARSER_VERSION = 9
 
 # ---------------------------------------------------------------- normalising
 
@@ -83,7 +83,7 @@ PRICE_MIN, PRICE_MAX = 50, 100_000
 _VND_MILLIONS = re.compile(
     r"(?<![\d.,])(\d{1,3}(?:[.,]\d{1,2})?)\s*"
     r"(?:(?:-|–|—|до)\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*)?"
-    r"(?:млн|миллион\w*|mln)\b", re.IGNORECASE)
+    r"(?:млн|миллион\w*|mln|mil(?:lion)?s?|triệu|trieu|tr)\b", re.IGNORECASE)
 _VND_PLAIN = re.compile(
     r"(?<![\d.,])(\d{1,3}(?:[ .,]\d{3}){1,3})\s*(?:vnd|₫|донг\w*)\b", re.IGNORECASE)
 # Utilities, deposits and per-unit tariffs are quoted in the same units.
@@ -275,16 +275,20 @@ _ROOMS_WORD = {
     "трехкомнат": 3, "трёхкомнат": 3, "четырехкомнат": 4, "четырёхкомнат": 4,
     "пятикомнат": 5,
 }
-_BEDROOMS_EN = re.compile(r"\b([1-5])\s*(?:bed\s?rooms?|bedrooms?|br|bdr)\b", re.IGNORECASE)
+_BEDROOMS_EN = re.compile(
+    r"\b([1-5])\s*[-–]?\s*(?:bed\s?rooms?|bedrooms?|beds?\b|br\b|bdr\b)",
+    re.IGNORECASE)
 # Vietnamese ads count bedrooms rather than using the Batumi "2+1" notation.
 _BEDROOMS_RU = re.compile(r"\b([1-5])\s*(?:-|\s)?\s*спал[ье]\w*", re.IGNORECASE)
+_BEDROOMS_VN = re.compile(r"\b([1-5])\s*(?:pn\b|phòng ngủ|phong ngu)", re.IGNORECASE)
 _BEDROOMS_WORD = {"одна спальн": 1, "две спальн": 2, "двумя спальн": 2,
                   "три спальн": 3, "тремя спальн": 3, "четыре спальн": 4}
 _FLAT_SLANG = {"однушк": 1, "двушк": 2, "трешк": 3, "трёшк": 3, "студийк": 0}
 
 _AREA = re.compile(
-    r"(?<![\d,.])(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:кв\.?\s*м\.?|кв\.?метр\w*|м\s*[²2]\b|"
-    r"м\.?кв|квадратн\w*\s*метр\w*|sq\.?\s?m|sqm|кв\b)", re.IGNORECASE)
+    r"(?<![\d,.])(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:кв\.?\s*м\.?|кв\.?метр\w*|"
+    r"[мm]\s*[²2]\b|м\.?кв|квадратн\w*\s*метр\w*|sq\.?\s?m|sqm|"
+    r"m2\b|мет\w*\s*вуон|кв\b)", re.IGNORECASE)
 _AREA_WORD = re.compile(r"(?:площад\w*|area)[^\d\n]{0,10}(\d{1,4}(?:[.,]\d{1,2})?)",
                         re.IGNORECASE)
 AREA_MIN, AREA_MAX = 8, 600
@@ -316,6 +320,9 @@ def extract_rooms(text: str) -> tuple[int | None, int | None, str | None]:
         n = int(m.group(1))
         return n + 1, n, f"{n} bedroom"
     if m := _BEDROOMS_RU.search(text):
+        n = int(m.group(1))
+        return n + 1, n, f"{n} bedroom"
+    if m := _BEDROOMS_VN.search(text):
         n = int(m.group(1))
         return n + 1, n, f"{n} bedroom"
     for word, n in _BEDROOMS_WORD.items():
@@ -545,7 +552,8 @@ _LAYOUT_ANY = re.compile(r"\b[1-5]\s*\+\s*[0-2]\b")
 
 
 def _structure(text: str) -> tuple[bool, float | None, float | None, int | None]:
-    has_layout = bool(_LAYOUT_ANY.search(text) or _STUDIO.search(text))
+    has_layout = bool(_LAYOUT_ANY.search(text) or _STUDIO.search(text)
+                      or extract_rooms(text)[0] is not None)
     price, _, _ = extract_price(text)
     return has_layout, price, extract_area(text), extract_floor(text)[0]
 
