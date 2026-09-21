@@ -308,12 +308,14 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     return (r.p!=null?usd(r.p):"—")+(d?" ("+d+")":"");
   };
   var KINDS=[["apartment","Apartment"],["house","House"],["room","Room"]];
-  var SRCS=[["chotot","Nhatot"],["muaban","Muaban"],["telegram","Telegram"]];
+  var SRCS=[["chotot","Nhatot"],["muaban","Muaban"],["telegram","Telegram"],
+            ["dananglandlord","DN Landlord"]];
   // Named after where the link actually lands, not where the data came from:
   // Chotot's property listings live on nhatot.com, so a label taken from the
   // source would send you to a site the button never mentioned.
   var HOSTNAME={"nhatot.com":"Nhatot","chotot.com":"Chotot",
-                "muaban.net":"Muaban","t.me":"Telegram"};
+                "muaban.net":"Muaban","t.me":"Telegram",
+                "dananglandlord.com":"Da Nang Landlord"};
   function sourceName(r){
     var host="";
     try{ host=new URL(r.url).hostname.replace(/^www\./,""); }catch(e){}
@@ -321,7 +323,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   }
 
   var srcNames=(META.sources||[]).map(function(s){
-    return {chotot:"nhatot.com",muaban:"muaban.net",telegram:"Telegram channels"}[s.split(":")[0]]||s.split(":")[0];});
+    return {chotot:"nhatot.com",muaban:"muaban.net",telegram:"Telegram channels",
+    dananglandlord:"dananglandlord.com"}[s.split(":")[0]]||s.split(":")[0];});
   srcNames=srcNames.filter(function(v,i,a){return a.indexOf(v)===i;});
   $("provenance").textContent=(srcNames.join(" + ")||"—")+" · "+ALL.length.toLocaleString("en-US")+" distinct listings · "+(META.from||"")+" to "+(META.to||"");
   $("built").textContent="Built "+(META.built||"")+" from "+
