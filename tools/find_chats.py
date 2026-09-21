@@ -40,6 +40,14 @@ CITIES = {
                     "Phu Quoc housing", "Фукуок жилье", "Phu Quoc expats"],
         "words": ("фукуок", "фу куок", "phu quoc", "phú quốc", "phuquoc", "фу-куок"),
     },
+    "hcmc": {
+        "queries": ["Хошимин", "Сайгон", "Хошимин аренда", "Сайгон аренда",
+                    "Ho Chi Minh rent", "Saigon rent", "Saigon apartment",
+                    "thuê nhà Sài Gòn", "Saigon expats", "Хошимин жилье",
+                    "HCMC apartment", "Сайгон чат"],
+        "words": ("хошимин", "сайгон", "ho chi minh", "saigon", "hcmc",
+                  "sài gòn", "sai gon", "хчм"),
+    },
     "nhatrang": {
         "queries": ["Нячанг", "Нячанг аренда", "Nha Trang rent",
                     "Nha Trang apartment", "Нячанг жилье", "thuê nhà Nha Trang"],
