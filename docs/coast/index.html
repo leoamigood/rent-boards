@@ -310,7 +310,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   };
   var KINDS=[["apartment","Apartment"],["house","House"],["room","Room"]];
   var SRCS=[["chotot","Nhatot"],["muaban","Muaban"],["telegram","Telegram"],
-            ["dananglandlord","DN Landlord"]];
+            ["dananglandlord","Da Nang Landlord"]];
   // Named after where the link actually lands, not where the data came from:
   // Chotot's property listings live on nhatot.com, so a label taken from the
   // source would send you to a site the button never mentioned.
@@ -934,7 +934,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
       b.querySelector(".loc").textContent=[r.loc,shortDist(r.dist)].filter(Boolean).join(" · ")||"—";
       b.querySelector(".flags").textContent=[r.cx||null,r.sv?"sea view":null,
         r.fu===1?"furnished":null,r.np?r.np+" photos":null,
-        r.src!=="chotot"?r.src:null].filter(Boolean).join(" · ");
+        r.src!=="chotot"?sourceName(r):null].filter(Boolean).join(" · ");
       b.querySelector(".date").textContent=r.d.slice(5);
       b.addEventListener("click",function(){
         if(b.nextElementSibling&&b.nextElementSibling.className==="detail"){
