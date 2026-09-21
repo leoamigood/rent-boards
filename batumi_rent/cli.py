@@ -77,6 +77,12 @@ def build_parser() -> argparse.ArgumentParser:
     f.add_argument("--older", action="store_true",
                    help="continue backwards into older history instead of fetching new")
     f.add_argument("--days", type=int, help="stop once posts are older than N days")
+    f.add_argument("--as-source", metavar="KEY",
+                   help="store under this key instead of the chat name, so "
+                        "several channels can feed one source")
+    f.add_argument("--city", help="set the city for every row from this chat")
+    f.add_argument("--no-join", dest="join", action="store_false", default=True,
+                   help="read without joining (public channels allow it)")
 
     sub.add_parser("watch", help="stay connected and store new posts as they arrive")
     sub.add_parser("reparse", help="re-run the parser over stored messages (no network)")
@@ -143,7 +149,9 @@ def main(argv: list[str] | None = None) -> int:
                                      max_age_days=args.max_age)
             else:
                 collect.run(collect.fetch(cfg, limit=args.limit, older=args.older,
-                                          since_days=args.days))
+                                          since_days=args.days,
+                                          source=args.as_source, city=args.city,
+                                          join=args.join))
 
         case "watch":
             collect.run(collect.watch(cfg))

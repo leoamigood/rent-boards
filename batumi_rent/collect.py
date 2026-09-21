@@ -48,7 +48,7 @@ async def ensure_joined(client: TelegramClient, chat: str) -> Any:
     return entity
 
 
-def message_row(msg: Message, chat: str) -> dict[str, Any]:
+def message_row(msg: Message, chat: str, link_chat: str | None = None) -> dict[str, Any]:
     sender = getattr(msg, "sender", None)
     name = None
     if sender is not None:
@@ -67,7 +67,7 @@ def message_row(msg: Message, chat: str) -> dict[str, Any]:
         "grouped_id": msg.grouped_id,
         "reply_to": msg.reply_to.reply_to_msg_id if msg.reply_to else None,
         "n_photos": 1 if msg.photo else 0,
-        "link": f"https://t.me/{chat}/{msg.id}",
+        "link": f"https://t.me/{link_chat or chat}/{msg.id}",
         "fetched_at": db.now_utc(),
     }
 
@@ -79,6 +79,10 @@ def listing_row(msg_row: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
     # own values; the text parser still runs underneath to pick up what the
     # structured record does not carry (sea view, furnishing, term, pets).
     structured: dict[str, Any] = {}
+    # Some sources hand over a whole listing record; others only annotate one
+    # (the city a channel covers). Only the former is evidence that the message
+    # is an ad at all — otherwise every empty photo in an album becomes one.
+    is_record = False
     if raw := msg_row.get("raw"):
         try:
             record = json.loads(raw)
@@ -86,10 +90,17 @@ def listing_row(msg_row: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
             record = {}
         if record.get("_src") == "chotot":
             structured = chotot.listing_fields(record, cfg.vnd_per_usd)
+            is_record = True
         elif record.get("_src") == "muaban":
             structured = muaban.listing_fields(record, cfg.vnd_per_usd)
+            is_record = True
+        elif record.get("_src") == "telegram":
+            # A single-city channel: the city is a property of the source, not
+            # something to hope each post spells out.
+            structured = {k: v for k, v in record.items()
+                          if k == "city" and v is not None}
 
-    if not structured and not parser.is_listing(text):
+    if not is_record and not parser.is_listing(text):
         return None
 
     fields = parser.parse(text, sender_id=msg_row.get("sender_id"),
@@ -112,16 +123,26 @@ def _flush(conn: sqlite3.Connection, messages: list[dict[str, Any]], cfg: Config
 
 
 async def fetch(cfg: Config, *, limit: int | None = None, older: bool = False,
-                since_days: int | None = None) -> None:
+                since_days: int | None = None, source: str | None = None,
+                city: str | None = None, join: bool = True) -> None:
+    """Pull a Telegram chat.
+
+    `source` stores the rows under a different key than the chat's username,
+    so several channels can feed one logical source; links still point at the
+    real channel. Public channels read fine without joining, so `join` is
+    optional — it is not this tool's place to subscribe an account.
+    """
+    store_as = source or cfg.chat
     conn = db.connect(cfg.db_path)
     client = make_client(cfg)
     async with client:
-        await ensure_joined(client, cfg.chat)
+        if join:
+            await ensure_joined(client, cfg.chat)
         entity = await resolve_chat(client, cfg.chat)
 
         kwargs: dict[str, Any] = {"limit": limit}
-        known_max = db.max_msg_id(conn, cfg.chat)
-        known_min = db.min_msg_id(conn, cfg.chat)
+        known_max = db.max_msg_id(conn, store_as)
+        known_min = db.min_msg_id(conn, store_as)
         if older and known_min:
             kwargs["offset_id"] = known_min          # continue further back
             mode = f"history older than message {known_min}"
@@ -145,7 +166,11 @@ async def fetch(cfg: Config, *, limit: int | None = None, older: bool = False,
                     break
                 if not isinstance(msg, Message):
                     continue
-                buffer.append(message_row(msg, cfg.chat))
+                row = message_row(msg, store_as, link_chat=cfg.chat)
+                if city:
+                    row["raw"] = json.dumps({"_src": "telegram", "city": city},
+                                            ensure_ascii=False)
+                buffer.append(row)
                 total += 1
                 if len(buffer) >= BATCH:
                     listings += _flush(conn, buffer, cfg)
@@ -157,7 +182,7 @@ async def fetch(cfg: Config, *, limit: int | None = None, older: bool = False,
         finally:
             listings += _flush(conn, buffer, cfg)
         print(f"\nStored {total} messages, {listings} of them parsed as listings.")
-        db.set_state(conn, f"last_fetch:{cfg.chat}", db.now_utc())
+        db.set_state(conn, f"last_fetch:{store_as}", db.now_utc())
         conn.commit()
     conn.close()
 
@@ -192,27 +217,38 @@ async def watch(cfg: Config) -> None:
 
 
 def reparse(cfg: Config, *, only_new_version: bool = True) -> None:
-    """Re-run the parser over stored messages — no network access needed."""
+    """Re-run the parser over stored messages — no network access needed.
+
+    The listings for the chat are rebuilt from scratch rather than upserted:
+    a message that stops qualifying as an ad has to lose its row, and an
+    upsert would leave the stale one behind forever.
+    """
     conn = db.connect(cfg.db_path)
     rows = conn.execute("SELECT * FROM messages WHERE chat=?", (cfg.chat,)).fetchall()
-    updated = 0
+    if not rows:
+        print(f"No stored messages for {cfg.chat!r}.")
+        conn.close()
+        return
+
+    before = conn.execute("SELECT COUNT(*) FROM listings WHERE chat=?",
+                          (cfg.chat,)).fetchone()[0]
+    conn.execute("DELETE FROM listings WHERE chat=?", (cfg.chat,))
+
+    kept = 0
     batch: list[dict[str, Any]] = []
     for row in rows:
         listing = listing_row(dict(row), cfg)
         if listing:
             batch.append(listing)
         if len(batch) >= 500:
-            updated += db.save_listings(conn, batch)
+            kept += db.save_listings(conn, batch)
             batch.clear()
-    updated += db.save_listings(conn, batch)
-    # Drop rows that no longer parse as listings at all.
-    conn.execute(
-        "DELETE FROM listings WHERE chat=? AND parser_version < ?",
-        (cfg.chat, parser.PARSER_VERSION))
+    kept += db.save_listings(conn, batch)
     conn.commit()
     conn.close()
-    print(f"Re-parsed {len(rows)} messages -> {updated} listings "
-          f"(parser v{parser.PARSER_VERSION}).")
+    delta = kept - before
+    print(f"Re-parsed {len(rows)} messages -> {kept} listings "
+          f"({delta:+d} vs before, parser v{parser.PARSER_VERSION}).")
 
 
 def run(coro) -> None:
