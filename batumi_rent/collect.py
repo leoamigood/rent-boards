@@ -17,7 +17,7 @@ from telethon import TelegramClient, errors, events, functions
 from telethon.tl.types import Message
 
 from . import db, parser
-from .sources import chotot, dananglandlord, muaban
+from .sources import chotot, dananglandlord, muaban, renthome
 from .config import Config
 
 BATCH = 200
@@ -93,6 +93,9 @@ def listing_row(msg_row: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
             is_record = True
         elif record.get("_src") == "muaban":
             structured = muaban.listing_fields(record, cfg.vnd_per_usd)
+            is_record = True
+        elif record.get("_src") == "renthome":
+            structured = renthome.listing_fields(record, cfg.vnd_per_usd)
             is_record = True
         elif record.get("_src") in ("telegram", "dananglandlord"):
             # A single-city channel: the city is a property of the source, not
@@ -366,6 +369,44 @@ def fetch_dananglandlord(cfg: Config, limit: int | None = None,
         listings += _flush(conn, buffer, cfg)
 
     print(f"\nStored {total} posts ({fresh} new), {listings} parsed as listings.")
+    db.set_state(conn, f"last_fetch:{source}", db.now_utc())
+    conn.commit()
+    conn.close()
+
+
+def fetch_renthome(cfg: Config, region: str, limit: int | None = None,
+                   max_age_days: int | None = 120) -> None:
+    """Pull listings from renthome.pro."""
+    source = f"renthome:{region}"
+    conn = db.connect(cfg.db_path)
+    known = {r[0] for r in conn.execute(
+        "SELECT msg_id FROM messages WHERE chat=?", (source,))}
+
+    print(f"Fetching {region} listings from renthome.pro"
+          f"{f' (up to {limit})' if limit else ''}...")
+    buffer: list[dict[str, Any]] = []
+    total = listings = fresh = 0
+    try:
+        for ad in renthome.iter_listings(region, limit=limit,
+                                         max_age_days=max_age_days):
+            row = renthome.message_row(ad, source)
+            row["fetched_at"] = db.now_utc()
+            if row["msg_id"] not in known:
+                fresh += 1
+            buffer.append(row)
+            total += 1
+            if len(buffer) >= BATCH:
+                listings += _flush(conn, buffer, cfg)
+                buffer.clear()
+                print(f"  {total} listings...", end="\r", flush=True)
+    except KeyboardInterrupt:
+        print("\nstopping early")
+    except Exception as exc:                       # noqa: BLE001
+        print(f"\nStopped after {total}: {exc.__class__.__name__}: {exc}")
+    finally:
+        listings += _flush(conn, buffer, cfg)
+
+    print(f"\nStored {total} listings ({fresh} new), {listings} parsed.")
     db.set_state(conn, f"last_fetch:{source}", db.now_utc())
     conn.commit()
     conn.close()

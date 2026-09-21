@@ -135,6 +135,7 @@ def main() -> int:
             "cx": r["complex_name"],
             "ppm": r["usd_per_sqm"],
             "t": r["term"],
+            "av": r["available_from"],
             "sv": 1 if r["sea_view"] else 0,
             "fu": r["furnished"],
             "pk": 1 if r["parking"] else 0,

@@ -65,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("join", help="join the chat with the logged-in account")
 
     f = sub.add_parser("fetch", help="download listings (new ones by default)")
-    f.add_argument("--source", choices=["telegram", "chotot", "muaban", "dananglandlord"],
+    f.add_argument("--source", choices=["telegram", "chotot", "muaban", "dananglandlord", "renthome"],
                    default="telegram",
                    help="where to fetch from (default: telegram)")
     f.add_argument("--region", default="danang",
@@ -144,6 +144,9 @@ def main(argv: list[str] | None = None) -> int:
         case "fetch":
             if args.source == "chotot":
                 collect.fetch_chotot(cfg, args.region, limit=args.limit)
+            elif args.source == "renthome":
+                collect.fetch_renthome(cfg, args.region, limit=args.limit,
+                                       max_age_days=args.max_age)
             elif args.source == "dananglandlord":
                 collect.fetch_dananglandlord(cfg, limit=args.limit,
                                              max_age_days=args.max_age)
