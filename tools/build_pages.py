@@ -9,6 +9,7 @@ Contacts are stripped from every public copy.
 from __future__ import annotations
 
 import shutil
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -76,15 +77,34 @@ REDIRECT_PAGE = """<title>Moved</title>
 """
 
 
+def _has_data(db: Path, chat: str) -> bool:
+    """True when this database actually holds listings for the board's source."""
+    if not db.exists():
+        return False
+    try:
+        with sqlite3.connect(f"file:{db}?mode=ro", uri=True) as conn:
+            return bool(conn.execute(
+                "SELECT 1 FROM listings WHERE chat=? LIMIT 1", (chat,)).fetchone())
+    except sqlite3.Error:
+        return False
+
+
 def main() -> int:
-    if DOCS.exists():
-        shutil.rmtree(DOCS)
-    DOCS.mkdir(parents=True)
+    DOCS.mkdir(parents=True, exist_ok=True)
     (DOCS / ".nojekyll").write_text("")
     (DOCS / "index.html").write_text(INDEX, encoding="utf-8")
 
     for src, slug, db, chat, extra in BOARDS:
         out = DOCS / slug
+        # The databases are gitignored, so a checkout usually holds only some of
+        # them. Rebuild the boards whose data is here and leave the published
+        # copy of the rest alone: emptying docs/ first meant one missing
+        # database took every other board down with it.
+        if not _has_data(ROOT / db, chat):
+            print(f"  {slug}/  skipped — no listings for {chat} in {db}")
+            continue
+        if out.exists():
+            shutil.rmtree(out)
         out.mkdir(parents=True)
         cmd = [sys.executable, str(ROOT / "tools" / "build_dashboard.py"),
                "--chat", chat, "--db", db, "--out", str(out.relative_to(ROOT)),
