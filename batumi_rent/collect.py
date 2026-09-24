@@ -8,6 +8,7 @@ option for a public chat you don't own.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -219,13 +220,27 @@ async def watch(cfg: Config) -> None:
     conn.close()
 
 
-def reparse(cfg: Config, *, only_new_version: bool = True) -> None:
+def reparse(cfg: Config, *, only_new_version: bool = True,
+            all_chats: bool = False) -> None:
     """Re-run the parser over stored messages — no network access needed.
 
-    The listings for the chat are rebuilt from scratch rather than upserted:
-    a message that stops qualifying as an ad has to lose its row, and an
-    upsert would leave the stale one behind forever.
+    One chat at a time, or every source in the database with --all-chats: a
+    board fed by a dozen sources would otherwise reparse only whichever one
+    TG_CHAT happens to name, and quietly leave the rest on the old parser.
     """
+    if all_chats:
+        conn = db.connect(cfg.db_path)
+        chats = [r[0] for r in conn.execute(
+            "SELECT DISTINCT chat FROM messages ORDER BY chat")]
+        conn.close()
+        if not chats:
+            print("No stored messages.")
+            return
+        for chat in chats:
+            print(f"{chat}: ", end="")
+            reparse(replace(cfg, chat=chat), only_new_version=only_new_version)
+        return
+
     conn = db.connect(cfg.db_path)
     rows = conn.execute("SELECT * FROM messages WHERE chat=?", (cfg.chat,)).fetchall()
     if not rows:

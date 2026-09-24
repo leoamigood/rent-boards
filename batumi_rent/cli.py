@@ -86,7 +86,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="read without joining (public channels allow it)")
 
     sub.add_parser("watch", help="stay connected and store new posts as they arrive")
-    sub.add_parser("reparse", help="re-run the parser over stored messages (no network)")
+    rp = sub.add_parser("reparse", help="re-run the parser over stored messages (no network)")
+    rp.add_argument("--all-chats", action="store_true",
+                    help="every source in the database, not just --chat")
 
     ls = sub.add_parser("list", help="list matching listings")
     _filter_args(ls)
@@ -164,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
             collect.run(collect.watch(cfg))
 
         case "reparse":
-            collect.reparse(cfg)
+            collect.reparse(cfg, all_chats=args.all_chats)
 
         case "list":
             conn = db.connect(cfg.db_path)

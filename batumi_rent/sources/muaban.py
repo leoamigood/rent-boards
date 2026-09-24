@@ -41,6 +41,9 @@ REGIONS: dict[str, tuple[str, str, str | None]] = {
     "nhatrang": ("khanh-hoa", "Nha Trang", "Nha Trang"),
     "hoian":    ("quang-nam", "Hoi An", "Hội An"),
     "phuquoc":  ("kien-giang", "Phu Quoc", "Phú Quốc"),
+    # The province is named after the city here, so the match has to carry the
+    # "TP." — plain "Vũng Tàu" appears in every Bà Rịa and Phú Mỹ address too.
+    "vungtau":  ("ba-ria-vung-tau", "Vung Tau", "TP. Vũng Tàu"),
 }
 
 _NEXT = re.compile(r'id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
@@ -208,11 +211,18 @@ def listing_fields(raw: dict[str, Any], vnd_per_usd: float) -> dict[str, Any]:
     elif raw.get("kind") == "room":
         out["bedrooms"], out["rooms"], out["layout"] = 0, 1, "studio"
 
-    # "Phường Tân Chính, Quận Thanh Khê, Đà Nẵng"
+    # "Phường Tân Chính, Quận Thanh Khê, Đà Nẵng" — ward, district, province.
+    # In the single-city regions the middle part is the city ("Phường Thắng
+    # Tam, TP. Vũng Tàu, Bà Rịa - Vũng Tàu"), the same value on every listing,
+    # so the ward is what locates a flat there. Same rule as Chotot's.
     parts = [p.strip() for p in (raw.get("location") or "").split(",") if p.strip()]
     if len(parts) >= 2:
-        out["district"] = parts[-2]
-        out["address"] = parts[0]
+        middle = parts[-2]
+        is_city = middle.startswith(("TP.", "Tp.", "Thành phố", "Thành Phố",
+                                     "Thị xã", "Thị Xã"))
+        out["district"] = parts[0] if is_city else middle
+        if parts[0] != out["district"]:
+            out["address"] = parts[0]
     elif parts:
         out["district"] = parts[0]
 
