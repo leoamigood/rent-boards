@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Vietnam City Rentals</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -260,7 +261,7 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     </figure>
     <figure>
       <figcaption>Median rent by district</figcaption>
-      <p class="cap">Da Nang's seven districts</p>
+      <p class="cap" id="c2cap">Districts across every city</p>
       <svg id="c2" viewBox="0 0 340 180" role="img" aria-label="Median rent for each district"></svg>
     </figure>
     <figure>
@@ -296,7 +297,13 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   var median=function(a){if(!a.length)return null;var s=a.slice().sort(function(x,y){return x-y;});
     var m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
   // District names are long; the ward prefix carries no information here.
-  var shortDist=function(d){return (d||"").replace(/^(Quận|Huyện)\s+/,"");};
+  var WARD_CITIES={"Nha Trang":1,"Hoi An":1,"Phu Quoc":1,"Vung Tau":1};
+  var shortDist=function(d){
+    var v=(d||"").replace(/^(Quận|Huyện|Phường|Xã)\s+/,"");
+    // Nha Trang and Vung Tau are single-district cities, so their chips are
+    // wards, and half of Vung Tau's are numbered: "Thắng Tam" reads as a place
+    // on its own, "10" does not.
+    return /^\d+$/.test(v)?"P. "+v:v;};
   // Dollars lead, because that is what the whole board compares in. The dong
   // figure stays alongside: it is the number on the ad and the one a landlord
   // will talk about.
@@ -872,7 +879,19 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
     var mid=median(pr);
 
     $("tiles").innerHTML="";
-    [["Listings",rows.length.toLocaleString("en-US"),"of "+ALL.length.toLocaleString("en-US")+" in Da Nang"],
+    // The board covers several cities now, so the count is named after the
+    // one on show rather than after Da Nang.
+    var onlyCity=Object.keys(state.city).filter(function(k){return state.city[k];});
+    var scope=onlyCity.length===1
+      ? ALL.filter(function(r){return r.city===onlyCity[0];}).length
+          .toLocaleString("en-US")+" in "+onlyCity[0]
+      : ALL.length.toLocaleString("en-US")+" across every city";
+    // Nha Trang and Vung Tau are one district each, so the chart is by ward
+    // there and the caption has to say which it is.
+    $("c2cap").textContent=onlyCity.length===1
+      ? (WARD_CITIES[onlyCity[0]]?"The wards of ":"The districts of ")+onlyCity[0]
+      : "Districts across every city";
+    [["Listings",rows.length.toLocaleString("en-US"),"of "+scope],
      ["Median rent",mid!=null?usd(mid):"—",
       mid!=null?(mid*25500/1e6).toFixed(1)+" tr a month":"—"],
      ["Median size",ar.length?Math.round(median(ar))+" m²":"—",ar.length+" give a size"],
