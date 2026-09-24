@@ -69,7 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
                    default="telegram",
                    help="where to fetch from (default: telegram)")
     f.add_argument("--region", default="danang",
-                   help="for --source chotot: danang, hanoi, hcmc, nhatrang")
+                   help="for --source chotot: danang, hanoi, hcmc, nhatrang, "
+                        "hoian, phuquoc, vungtau")
     f.add_argument("--limit", type=int, help="stop after N messages")
     f.add_argument("--max-age", type=int, default=120, metavar="DAYS",
                    help="for web sources: stop paging once listings are older "

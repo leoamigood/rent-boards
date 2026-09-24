@@ -48,6 +48,7 @@ REGIONS: dict[str, tuple[int, str, str | None]] = {
     "nhatrang": (7044, "Nha Trang", "Nha Trang"),
     "hoian":    (3016, "Hoi An", "Hội An"),
     "phuquoc":  (5031, "Phu Quoc", "Phú Quốc"),
+    "vungtau":  (2010, "Vung Tau", "Vũng Tàu"),
 }
 
 # Residential rental categories. Offices (1030) are deliberately left out.
@@ -172,9 +173,17 @@ def listing_fields(raw: dict[str, Any], vnd_per_usd: float) -> dict[str, Any]:
         out["rooms"] = 1
         out["layout"] = "studio"
 
-    if raw.get("area_name"):
-        out["district"] = raw["area_name"]
-    address = " ".join(filter(None, [raw.get("street_name"), raw.get("ward_name")]))
+    # In a multi-district city the area is the district (Quận Sơn Trà). In the
+    # single-city regions it is the city itself — the same value on every ad,
+    # which would collapse the district filter to one entry — so there the ward
+    # is what actually locates a flat.
+    area, ward = raw.get("area_name"), raw.get("ward_name")
+    if area and not area.startswith(("Thành phố", "Thị xã")):
+        out["district"] = area
+    elif ward:
+        out["district"] = ward
+    parts = [raw.get("street_name")] + ([ward] if ward != out.get("district") else [])
+    address = " ".join(filter(None, parts))
     if address:
         out["address"] = address
     if raw.get("pty_project_name"):
