@@ -733,6 +733,13 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   // Same data, same colours, same click-through either way.
   var lmap=null, llayer=null, lastFit="", lmarkers={}, lastRows=[];
 
+  // Carto serves these tiles anonymously as well; the account's public API
+  // token only books the requests against the account rather than the shared
+  // anonymous pool, so the map draws either way. Left blank here and in the
+  // committed copy under docs/: .github/workflows/pages.yml fills it from the
+  // CARTO_TOKEN secret into the deployed page only.
+  var CARTO_TOKEN="";
+
   function initLeaflet(){
     var box=$("mapbox");
     box.innerHTML="";
@@ -742,7 +749,8 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
              (root.getAttribute("data-theme")!=="light" &&
               window.matchMedia("(prefers-color-scheme: dark)").matches);
     L.tileLayer("https://basemaps.cartocdn.com/"+(dark?"dark_all":"light_all")+
-                "/{z}/{x}/{y}{r}.png",{
+                "/{z}/{x}/{y}{r}.png"+
+                (CARTO_TOKEN?"?access_token="+CARTO_TOKEN:""),{
       maxZoom:19, attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'+
         ' contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
