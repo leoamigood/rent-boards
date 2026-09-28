@@ -55,6 +55,10 @@ h1{font-family:var(--display);font-weight:600;font-size:clamp(30px,5vw,44px);
          padding:15px 17px;display:grid;gap:15px;margin-bottom:18px}
 .frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+/* .field's display beats the UA sheet's [hidden], so say it here: without
+   this the District label shows with no chips under it before a city is
+   picked, and in the map row it would push the map down. */
+.field[hidden]{display:none}
 label,.lbl{font-family:var(--mono);font-size:10px;letter-spacing:.08em;
            text-transform:uppercase;color:var(--ink-3)}
 input[type=search],select{font:inherit;color:var(--ink);background:var(--surface-2);
@@ -83,6 +87,7 @@ input[type=range]{width:100%;accent-color:var(--blue)}
 
 .maprow{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(190px,1fr);
         gap:13px;margin-bottom:13px}
+.maprow>.field{grid-column:1/-1}
 #mapbox{height:min(62vh,470px);border-radius:4px;overflow:hidden}
 #map{width:100%;height:100%}
 .leaflet-container{background:var(--surface-2)!important;font:inherit}
@@ -163,10 +168,6 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
         <span class="lbl">City</span>
         <div class="chips" id="cities"></div>
       </div>
-      <div class="field" id="distfield" hidden>
-        <span class="lbl">District</span>
-        <div class="chips" id="dists"></div>
-      </div>
       <div class="field">
         <span class="lbl">Property</span>
         <div class="chips" id="kinds"></div>
@@ -239,6 +240,12 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   <section class="tiles" id="tiles" aria-label="Summary of the current selection"></section>
 
   <section class="maprow">
+    <!-- The district chips sit with the map rather than up in the filters:
+         picking an area and seeing where it is belong in one screenful. -->
+    <div class="field" id="distfield" hidden>
+      <span class="lbl">District</span>
+      <div class="chips" id="dists"></div>
+    </div>
     <figure>
       <figcaption>Where the listings are</figcaption>
       <p class="cap" id="mapcap">Each dot is one flat, placed by the ad's own coordinates</p>
