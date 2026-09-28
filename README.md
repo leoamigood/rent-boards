@@ -95,6 +95,13 @@ sh tools/deploy_pages.sh                   # rebuild docs/ and push; Pages redep
 
 Open the local one with `open dashboard/index.html`.
 
+The push is only half the deploy: a workflow picks `docs/` up and publishes it,
+substituting the `CARTO_TOKEN` repository secret into the Da Nang map's basemap
+URL on the way. Carto serves those tiles anonymously as well, so the board works
+with the token unset — it just books the requests against the account instead of
+the shared anonymous pool. Keeping it in a secret is what lets `docs/` stay
+public without carrying it.
+
 ## How it's put together
 
 | file | role |
@@ -107,6 +114,8 @@ Open the local one with `open dashboard/index.html`.
 | `cli.py` | argparse front end |
 | `tools/build_dashboard.py` | exports `data.js` for the dashboard |
 | `docs/` | the static site GitHub Pages serves |
+| `tools/inject_carto.py` | fills the boards' blank Carto token from the environment |
+| `.github/workflows/pages.yml` | deploys `docs/`, injecting the `CARTO_TOKEN` secret |
 
 Raw message text is stored separately from the parsed fields on purpose. When
 you improve a regex in `parser.py`, re-apply it to the whole archive without
