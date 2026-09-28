@@ -1,15 +1,15 @@
-# Publish docs/ to GitHub Pages, filling in Carto's account token on the way.
+# Publish docs/ to GitHub Pages.
 #
 # The boards are built locally (tools/build_pages.py) and committed under docs/,
 # because the listing databases are gitignored and never leave the laptop — CI
-# has no data to build from. All this workflow adds is the token substitution,
-# so the secret reaches the deployed page without ever being committed.
+# has no data to build from. This workflow only uploads what is committed; the
+# basemap tiles come from OpenStreetMap and need no credential.
 name: Deploy Pages
 
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "tools/inject_carto.py", ".github/workflows/pages.yml"]
+    paths: ["docs/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -30,11 +30,6 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Inject the Carto token
-        env:
-          CARTO_TOKEN: ${{ secrets.CARTO_TOKEN }}
-        run: python3 tools/inject_carto.py docs
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

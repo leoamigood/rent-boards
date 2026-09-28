@@ -11,6 +11,7 @@
   --ink:#141A22; --ink-2:#4C5663; --ink-3:#78828F;
   --line:#DCE1E8; --line-strong:#C4CBD5; --chip:#E6EAF0;
   --blue:#1D6FB8; --blue-ink:#155A97; --amber:#B5651A; --amber-ink:#8E4E12;
+  --tile-filter:none;
   --sans:"DM Sans",ui-sans-serif,system-ui,sans-serif;
   --mono:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --display:"Spectral",Georgia,serif;
@@ -21,6 +22,9 @@
   --ink:#E7EBF1; --ink-2:#A6B0BD; --ink-3:#7A8492;
   --line:#242C38; --line-strong:#354050; --chip:#1E2530;
   --blue:#4793D8; --blue-ink:#6FACE4; --amber:#BC8226; --amber-ink:#D29A3D;
+  /* OSM has no dark style; invert the tiles and spin the hue back so water
+     stays blue and greenery green, then take the glare off. */
+  --tile-filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9);
 }}
 :root[data-theme="dark"]{
   color-scheme: dark;
@@ -28,6 +32,9 @@
   --ink:#E7EBF1; --ink-2:#A6B0BD; --ink-3:#7A8492;
   --line:#242C38; --line-strong:#354050; --chip:#1E2530;
   --blue:#4793D8; --blue-ink:#6FACE4; --amber:#BC8226; --amber-ink:#D29A3D;
+  /* OSM has no dark style; invert the tiles and spin the hue back so water
+     stays blue and greenery green, then take the glare off. */
+  --tile-filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9);
 }
 *{box-sizing:border-box}
 body{background:var(--ground);color:var(--ink);font-family:var(--sans);
@@ -78,6 +85,7 @@ input[type=range]{width:100%;accent-color:var(--blue)}
 #mapbox{height:min(62vh,470px);border-radius:4px;overflow:hidden}
 #map{width:100%;height:100%}
 .leaflet-container{background:var(--surface-2)!important;font:inherit}
+.leaflet-tile-pane{filter:var(--tile-filter,none)}
 .mapkey{background:var(--surface);border:1px solid var(--line);border-radius:6px;
         padding:13px 15px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .keyrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;
@@ -732,27 +740,19 @@ footer{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
   // Same data, same colours, same click-through either way.
   var lmap=null, llayer=null, lastFit="", lmarkers={}, lastRows=[];
 
-  // Carto serves these tiles anonymously as well; the account's public API
-  // token only books the requests against the account rather than the shared
-  // anonymous pool, so the map draws either way. Left blank here and in the
-  // committed copy under docs/: .github/workflows/pages.yml fills it from the
-  // CARTO_TOKEN secret into the deployed page only.
-  var CARTO_TOKEN="";
-
+  // OpenStreetMap's own tiles, which need no key. Carto's basemaps used to
+  // serve anonymously and now answer every keyless request with an "API KEY
+  // REQUIRED" watermark tile, at HTTP 200 — the map looked blank rather than
+  // broken. OSM ships one style only; dark mode filters it in CSS instead of
+  // swapping the URL, so nothing here reads the theme.
   function initLeaflet(){
     var box=$("mapbox");
     box.innerHTML="";
     lmap=L.map(box,{preferCanvas:true,scrollWheelZoom:false,zoomControl:true});
-    var root=document.documentElement;
-    var dark=root.getAttribute("data-theme")==="dark" ||
-             (root.getAttribute("data-theme")!=="light" &&
-              window.matchMedia("(prefers-color-scheme: dark)").matches);
-    L.tileLayer("https://basemaps.cartocdn.com/"+(dark?"dark_all":"light_all")+
-                "/{z}/{x}/{y}{r}.png"+
-                (CARTO_TOKEN?"?access_token="+CARTO_TOKEN:""),{
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
       maxZoom:19, attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'+
-        ' contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        ' contributors'
     }).addTo(lmap);
     llayer=L.layerGroup().addTo(lmap);
     lmap.setView([16.047,108.20],12);
